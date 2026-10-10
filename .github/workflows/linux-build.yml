@@ -30,6 +30,7 @@ jobs:
     env:
       CONFIG_NAME: "linux-x86_64-${{ inputs.config }}${{ inputs.name_suffix }}"
       AMFP_CONFIG_NAME: "amfp-linux-x86_64-${{ inputs.config }}${{ inputs.name_suffix }}"
+      PENUMBRA_CONFIG_NAME: "penumbra-linux-x86_64-${{ inputs.config }}${{ inputs.name_suffix }}"
       # premake's cfg.buildcfg is capitalized; gmake2's `config=` is lowercase.
       BUILD_FOLDER: "${{ inputs.config == 'release' && 'Release' || 'Debug' }}"
       BUILD_VERSION: ${{ inputs.build_version }}
@@ -157,4 +158,46 @@ jobs:
         with:
           name: ${{ env.AMFP_CONFIG_NAME }}
           path: ${{ env.AMFP_CONFIG_NAME }}.tar.gz
+          retention-days: 7
+
+      # Only when the caller passes --product=penumbra (build.yml does).
+      - name: Assert Penumbra runtime deployed
+        if: contains(inputs.premake_args, '--product=penumbra')
+        run: |
+          set -euo pipefail
+          runtime="build-premake/penumbra/${BUILD_FOLDER}"
+          test -x "$runtime/Penumbra" || { echo "Penumbra executable was not deployed: $runtime/Penumbra"; exit 1; }
+          shader=$(find "$runtime/compiled_shaders/vk" -type f -name '*.spv' -print -quit)
+          test -n "$shader" || { echo "Penumbra generated SPIR-V shaders are missing"; exit 1; }
+          # The product's own engine files, staged from penumbra/resources.
+          for file in \
+            resources.cfg config/main_init.cfg config/default_main_settings.cfg \
+            core/textures/core_dissolve.tga core/textures/colorgrading_base.png \
+            fonts/penumbra_default.fnt fonts/penumbra_default_0.tga gui/penumbra_default.skin; do
+            test -f "$runtime/$file" || { echo "Penumbra resource is missing: $runtime/$file"; exit 1; }
+          done
+          for pattern in "libs/libSDL2-2.0*.so*" "libs/libopenal.so*" "libs/libNRD.so*"; do
+            compgen -G "$runtime/$pattern" > /dev/null \
+              || { echo "Penumbra runtime dependency is missing: $runtime/$pattern"; exit 1; }
+          done
+          # No GPU or game install here: check that it loads and rejects a
+          # directory without Penumbra's data before starting the engine.
+          "$runtime/Penumbra" --help
+          if "$runtime/Penumbra" --game "$RUNNER_TEMP" 2> penumbra-stderr.txt; then
+            echo "Penumbra accepted a directory without resources.cfg"; exit 1
+          fi
+          grep -q "no Penumbra game data" penumbra-stderr.txt || { cat penumbra-stderr.txt; exit 1; }
+
+      - name: Package Penumbra
+        if: contains(inputs.premake_args, '--product=penumbra')
+        run: |
+          tar --exclude='*.a' -zcf "${PENUMBRA_CONFIG_NAME}.tar.gz" \
+            -C "build-premake/penumbra/${BUILD_FOLDER}" .
+
+      - name: Upload Penumbra artifact
+        if: contains(inputs.premake_args, '--product=penumbra')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PENUMBRA_CONFIG_NAME }}
+          path: ${{ env.PENUMBRA_CONFIG_NAME }}.tar.gz
           retention-days: 7

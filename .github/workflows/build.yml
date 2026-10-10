@@ -13,12 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # --product=penumbra adds this fork's Penumbra product to the same build as
+  # TDD and AMFP; their projects are generated exactly as without it.
   linux:
     uses: ./.github/workflows/linux-build.yml
     with:
       config: release
+      premake_args: --product=penumbra
 
   windows:
     uses: ./.github/workflows/windows-build.yml
     with:
       config: release
+      premake_args: --product=penumbra

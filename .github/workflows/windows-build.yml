@@ -30,6 +30,7 @@ jobs:
     env:
       CONFIG_NAME: "win-x86_64-${{ inputs.config }}${{ inputs.name_suffix }}"
       AMFP_CONFIG_NAME: "amfp-win-x86_64-${{ inputs.config }}${{ inputs.name_suffix }}"
+      PENUMBRA_CONFIG_NAME: "penumbra-win-x86_64-${{ inputs.config }}${{ inputs.name_suffix }}"
       BUILD_FOLDER: "${{ inputs.config == 'release' && 'Release' || 'Debug' }}"
       BUILD_VERSION: ${{ inputs.build_version }}
       # Keep in sync with the ARG in the repo-root Dockerfile.
@@ -269,4 +270,44 @@ jobs:
         with:
           name: ${{ env.AMFP_CONFIG_NAME }}
           path: ${{ env.AMFP_CONFIG_NAME }}.zip
+          retention-days: 7
+
+      # Only when the caller passes --product=penumbra (build.yml does).
+      - name: Assert Penumbra runtime
+        if: contains(inputs.premake_args, '--product=penumbra')
+        run: |
+          $outputDir = "build-premake\penumbra\$env:BUILD_FOLDER"
+          $gameExe = Join-Path $outputDir "Penumbra.exe"
+          if (-not (Test-Path -LiteralPath $gameExe -PathType Leaf)) {
+            throw "Expected Penumbra executable: $gameExe"
+          }
+          foreach ($shaderDir in @("compiled_shaders\vk", "compiled_shaders\d3d12")) {
+            $shaderPath = Join-Path $outputDir $shaderDir
+            if (-not (Get-ChildItem -LiteralPath $shaderPath -File -ErrorAction Stop | Select-Object -First 1)) {
+              throw "Penumbra generated shader directory is empty: $shaderPath"
+            }
+          }
+          # The product's own engine files, staged from penumbra\resources.
+          foreach ($file in @(
+            "resources.cfg", "config\main_init.cfg", "config\default_main_settings.cfg",
+            "core\textures\core_dissolve.tga", "core\textures\colorgrading_base.png",
+            "fonts\penumbra_default.fnt", "fonts\penumbra_default_0.tga", "gui\penumbra_default.skin"
+          )) {
+            $path = Join-Path $outputDir $file
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Penumbra resource is missing: $path"
+            }
+          }
+
+      - name: Package Penumbra
+        if: contains(inputs.premake_args, '--product=penumbra')
+        working-directory: build-premake\penumbra\${{ inputs.config == 'release' && 'Release' || 'Debug' }}
+        run: 7z a "$env:GITHUB_WORKSPACE\${env:PENUMBRA_CONFIG_NAME}.zip" * '-xr!*.lib' '-xr!*.exp'
+
+      - name: Upload Penumbra artifact
+        if: contains(inputs.premake_args, '--product=penumbra')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PENUMBRA_CONFIG_NAME }}
+          path: ${{ env.PENUMBRA_CONFIG_NAME }}.zip
           retention-days: 7
