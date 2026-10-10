@@ -98,6 +98,45 @@ Each milestone ends with something you can run. "Test install" is Antumbra's
 **Done when:** the executable starts, opens a window and shuts down cleanly
 with the test install and with no Amnesia install present.
 
+**Built.** Run with the test install on Mesa's software Vulkan (lavapipe)
+under Xvfb; a real GPU, Windows and the real install are still to be tried.
+
+- `--product=penumbra` declares the `Penumbra` project and its own engine
+  build, `HPL2_Penumbra` (define `PENUMBRA`), and nothing else: without it
+  the generated Amnesia and AMFP projects are unchanged. The executable
+  goes to `build-premake/penumbra/<Config>/` and works from its own
+  directory wherever it is started from.
+- AngelScript: AMFP's 2.24.1 with the `std::string` add-on. HPL1 registered
+  `string` as a value type (`RegisterStdString`; Antumbra compiles
+  Overture's scripts under 2.35.0 with the same add-on), while TDD's 2.19.2
+  build registers a reference type (`string@`, `asCScriptString`), which
+  Overture's scripts were never written against. **Compiling Overture's
+  `.hps` files is still untested**: no script is run before milestone 5,
+  and the test install has none. If 2.24.1 rejects them, the fallback is a
+  newer AngelScript for this product only. The engine's few AngelScript API
+  differences (`SqScript.cpp`, `scripthelper.cpp`, `LowLevelSystemSDL.cpp`)
+  are now selected by `ANGELSCRIPT_VERSION` instead of `AMFP`, which builds
+  TDD and AMFP exactly as before.
+- Lookup order is set by priority, not registration order: the install's
+  directories (its `resources.cfg`, read as HPL1 does: `Path` relative to
+  the data root, leading slash dropped, no subdirectories; names matched
+  case-insensitively) at 20, the product's (`resources.cfg` next to the
+  executable: `fonts/`, `gui/`) at 10, the engine's (`core/*`,
+  `compiled_shaders/*`) at 0. The product's replacements for engine files
+  that the engine loads while it starts (`core_dissolve.tga`) sit in
+  `core/textures/` next to the executable, which the engine registers itself.
+- The product's own files are named `penumbra_*` (`penumbra_default.skin`,
+  `penumbra_default.fnt`): HPL1 installs ship a `gui_default.skin` in HPL1's
+  format, which would shadow a product file of the same name.
+  `scripts/gen_penumbra_resources.py` writes the textures, font (rasterised
+  DejaVu Sans) and skin; the configs are written by hand.
+- User directory: `Penumbra Redux/` under Frictional's personal root
+  (`~/.frictionalgames/` on Linux), set in `config/main_init.cfg`: the log,
+  `main_settings.cfg` once it exists, and `cache/meshes/` for `.msh` caches
+  (`iMeshLoader::SetMeshCacheDir`; one flat directory, files named after the
+  mesh plus a hash of its full path). Amnesia and AMFP set no cache directory
+  and keep caching next to the source.
+
 ### 1. Static geometry on screen
 
 - `cWorldLoaderPenumbraCollada` in `HPL2/core` (registered for `.dae` by
@@ -185,8 +224,9 @@ be travelled through in order.
 
 - Coordinate system and units: both engines read Collada's up axis; verify
   that levels and entities line up (milestone 1).
-- Do Overture's `.hps` scripts compile under HPL2's AngelScript versions,
-  or does the product need a newer AngelScript build?
+- Do Overture's `.hps` scripts compile under AngelScript 2.24.1 (the
+  product's build, chosen in milestone 0), or does the product need a newer
+  AngelScript? Untested until the real install's scripts are compiled.
 - How much of HPL1's `.snt`, `.ps` and `.lnt` formats differs from HPL2's.
 - Sector ambient colour: which levels set it, and what replaces it.
 - Whether the product should reuse Amnesia's game code (`Lux*`) as its base

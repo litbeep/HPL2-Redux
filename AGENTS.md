@@ -48,7 +48,9 @@ Antumbra can also run any Penumbra level with `--steps`, `--capture` and
   resource overlay (`amnesia/resources`). `amfp/`: A Machine for Pigs.
 - `penumbra/` (this fork): `src/game` the Penumbra game code, `resources`
   this product's own files (configs, generated textures, GUI skins, fonts),
-  never the install's.
+  never the install's. The generated ones come from
+  `scripts/gen_penumbra_resources.py`; the build stages the directory next
+  to the executable.
 - `premake5.lua`, `premake/*.lua`: the build. Products are declared in
   `premake/product.lua`; `premake/amfp.lua` is the pattern a product
   project follows (`premake/penumbra.lua` here).
