@@ -1,0 +1,161 @@
+<!-- Penumbra product: a flat default GUI skin, written by
+     scripts/gen_penumbra_resources.py. Elements without a file are
+     filled rectangles of their colour and active_size. -->
+<GuiSkin>
+  <Fonts>
+    <Font type="Default" file="penumbra_default.fnt" size="14 14" color="0.88 0.88 0.85 1" />
+    <Font type="Disabled" file="penumbra_default.fnt" size="14 14" color="0.45 0.45 0.45 1" />
+    <Font type="WindowLabel" file="penumbra_default.fnt" size="15 15" color="1 1 1 1" />
+  </Fonts>
+  <Attributes>
+    <Attribute type="WindowLabelTextOffset" value="6 3" />
+    <Attribute type="WindowButtonSize" value="14 14" />
+    <Attribute type="WindowBordersOutside" value="1" />
+    <Attribute type="ButtonPressedContentOffset" value="1 1" />
+    <Attribute type="SliderButtonSize" value="14" />
+    <Attribute type="ListBoxSliderWidth" value="14" />
+    <Attribute type="ComboBoxButtonWidth" value="14" />
+    <Attribute type="ComboBoxSliderWidth" value="14" />
+    <Attribute type="ContextMenuItemArrowSize" value="8 8" />
+    <Attribute type="ContextMenuItemCheckSize" value="10 10" />
+    <Attribute type="ContextMenuItemHPadding" value="4" />
+    <Attribute type="ContextMenuItemVPadding" value="2" />
+    <Attribute type="ContextMenuItemSeparation" value="2" />
+    <Attribute type="ContextMenuItemTextLeftPadding" value="18" />
+    <Attribute type="ContextMenuItemTextRightPadding" value="18" />
+    <Attribute type="ContextMenuSeparatorPadding" value="4" />
+    <Attribute type="MainMenuItemTextPadding" value="8" />
+    <Attribute type="MainMenuItemVPadding" value="2" />
+    <Attribute type="MainMenuItemSeparation" value="2" />
+    <Attribute type="MenuSeparatorPadding" value="4" />
+    <Attribute type="MenuSeparatorHeight" value="1" />
+    <Attribute type="TabFrameButtonSize" value="14 14" />
+    <Attribute type="TabFrameIconPadding" value="4" />
+    <Attribute type="TabFrameTextLeftPadding" value="6" />
+    <Attribute type="TabFrameTextRightPadding" value="6" />
+    <Attribute type="TabFrameLabelInactiveOffset" value="0 2" />
+    <Attribute type="TabFrameLabelActiveOffset" value="0 0" />
+    <Attribute type="FirstTabOffset" value="4" />
+    <Attribute type="TabSeparation" value="2" />
+    <Attribute type="GroupHeaderOffset" value="8 0" />
+    <Attribute type="GroupHeaderOverUpperBorder" value="1" />
+    <Attribute type="DefaultFontHighlightColor" value="1 0.85 0.55" />
+  </Attributes>
+  <GfxElements>
+    <Gfx type="PointerNormal" file="penumbra_gui_pointer.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="PointerText" file="penumbra_gui_pointer_text.tga" offset="-3 -7" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="WindowBorderRight" file="" offset="0 0" active_size="2 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="WindowBorderLeft" file="" offset="0 0" active_size="2 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="WindowBorderUp" file="" offset="0 0" active_size="1 2" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="WindowBorderDown" file="" offset="0 0" active_size="1 2" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="WindowCornerLU" file="" offset="0 0" active_size="2 2" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="WindowCornerRU" file="" offset="0 0" active_size="2 2" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="WindowCornerRD" file="" offset="0 0" active_size="2 2" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="WindowCornerLD" file="" offset="0 0" active_size="2 2" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="WindowBackground" file="" offset="0 0" active_size="1 1" color="0.11 0.12 0.13 1" material="Alpha" />
+    <Gfx type="WindowLabel" file="" offset="0 0" active_size="1 1" color="0.40 0.30 0.16 1" material="Alpha" />
+    <Gfx type="WindowButtonCross" file="penumbra_gui_cross.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="FrameBorderRight" file="" offset="0 0" active_size="2 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="FrameBorderLeft" file="" offset="0 0" active_size="2 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="FrameBorderUp" file="" offset="0 0" active_size="1 2" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="FrameBorderDown" file="" offset="0 0" active_size="1 2" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="FrameCornerLU" file="" offset="0 0" active_size="2 2" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="FrameCornerRU" file="" offset="0 0" active_size="2 2" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="FrameCornerRD" file="" offset="0 0" active_size="2 2" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="FrameCornerLD" file="" offset="0 0" active_size="2 2" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="FrameBackground" file="" offset="0 0" active_size="1 1" color="0.18 0.19 0.21 1" material="Alpha" />
+    <Gfx type="FrameBackgroundColorPicking" file="" offset="0 0" active_size="1 1" color="0.08 0.09 0.10 1" material="Alpha" />
+    <Gfx type="CheckBoxEnabledUnchecked" file="" offset="0 0" active_size="12 12" color="0.08 0.09 0.10 1" material="Alpha" />
+    <Gfx type="CheckBoxEnabledChecked" file="penumbra_gui_check.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="CheckBoxDisabledUnchecked" file="" offset="0 0" active_size="12 12" color="0.18 0.19 0.21 1" material="Alpha" />
+    <Gfx type="CheckBoxDisabledChecked" file="penumbra_gui_check.tga" offset="0 0" active_size="-1 -1" color="0.45 0.45 0.45 1" material="Alpha" />
+    <Gfx type="TextBoxBackground" file="" offset="0 0" active_size="1 1" color="0.08 0.09 0.10 1" material="Alpha" />
+    <Gfx type="TextBoxSelectedTextBack" file="" offset="0 0" active_size="1 1" color="0.40 0.30 0.16 1" material="Alpha" />
+    <Gfx type="TextBoxMarker" file="" offset="0 0" active_size="1 1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="ListBoxBackground" file="" offset="0 0" active_size="1 1" color="0.08 0.09 0.10 1" material="Alpha" />
+    <Gfx type="ComboBoxButtonIcon" file="penumbra_gui_arrow_down.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="ComboBoxBorderRight" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="ComboBoxBorderLeft" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="ComboBoxBorderUp" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="ComboBoxBorderDown" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="ComboBoxCornerLU" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="ComboBoxCornerRU" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="ComboBoxCornerRD" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="ComboBoxCornerLD" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="ComboBoxBackground" file="" offset="0 0" active_size="1 1" color="0.08 0.09 0.10 1" material="Alpha" />
+    <Gfx type="SliderHandleBorderRight" file="" offset="0 0" active_size="1 1" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="SliderHandleBorderLeft" file="" offset="0 0" active_size="1 1" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="SliderHandleBorderUp" file="" offset="0 0" active_size="1 1" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="SliderHandleBorderDown" file="" offset="0 0" active_size="1 1" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="SliderHandleCornerLU" file="" offset="0 0" active_size="1 1" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="SliderHandleCornerRU" file="" offset="0 0" active_size="1 1" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="SliderHandleCornerRD" file="" offset="0 0" active_size="1 1" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="SliderHandleCornerLD" file="" offset="0 0" active_size="1 1" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="SliderHandleBackground" file="" offset="0 0" active_size="1 1" color="0.18 0.19 0.21 1" material="Alpha" />
+    <Gfx type="SliderVertArrowUp" file="penumbra_gui_arrow_up.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="SliderVertArrowDown" file="penumbra_gui_arrow_down.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="SliderVertBackground" file="" offset="0 0" active_size="1 1" color="0.08 0.09 0.10 1" material="Alpha" />
+    <Gfx type="SliderHoriArrowUp" file="penumbra_gui_arrow_left.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="SliderHoriArrowDown" file="penumbra_gui_arrow_right.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="SliderHoriBackground" file="" offset="0 0" active_size="1 1" color="0.08 0.09 0.10 1" material="Alpha" />
+    <Gfx type="ButtonUpBorderRight" file="" offset="0 0" active_size="2 1" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="ButtonUpBorderLeft" file="" offset="0 0" active_size="2 1" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="ButtonUpBorderUp" file="" offset="0 0" active_size="1 2" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="ButtonUpBorderDown" file="" offset="0 0" active_size="1 2" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="ButtonUpCornerLU" file="" offset="0 0" active_size="2 2" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="ButtonUpCornerRU" file="" offset="0 0" active_size="2 2" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="ButtonUpCornerRD" file="" offset="0 0" active_size="2 2" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="ButtonUpCornerLD" file="" offset="0 0" active_size="2 2" color="0.52 0.55 0.60 1" material="Alpha" />
+    <Gfx type="ButtonUpBackground" file="" offset="0 0" active_size="1 1" color="0.18 0.19 0.21 1" material="Alpha" />
+    <Gfx type="ButtonDownBorderRight" file="" offset="0 0" active_size="2 1" color="0.58 0.44 0.24 1" material="Alpha" />
+    <Gfx type="ButtonDownBorderLeft" file="" offset="0 0" active_size="2 1" color="0.58 0.44 0.24 1" material="Alpha" />
+    <Gfx type="ButtonDownBorderUp" file="" offset="0 0" active_size="1 2" color="0.58 0.44 0.24 1" material="Alpha" />
+    <Gfx type="ButtonDownBorderDown" file="" offset="0 0" active_size="1 2" color="0.58 0.44 0.24 1" material="Alpha" />
+    <Gfx type="ButtonDownCornerLU" file="" offset="0 0" active_size="2 2" color="0.58 0.44 0.24 1" material="Alpha" />
+    <Gfx type="ButtonDownCornerRU" file="" offset="0 0" active_size="2 2" color="0.58 0.44 0.24 1" material="Alpha" />
+    <Gfx type="ButtonDownCornerRD" file="" offset="0 0" active_size="2 2" color="0.58 0.44 0.24 1" material="Alpha" />
+    <Gfx type="ButtonDownCornerLD" file="" offset="0 0" active_size="2 2" color="0.58 0.44 0.24 1" material="Alpha" />
+    <Gfx type="ButtonDownBackground" file="" offset="0 0" active_size="1 1" color="0.40 0.30 0.16 1" material="Alpha" />
+    <Gfx type="MenuEnabledChecked" file="penumbra_gui_check.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="MenuDisabledChecked" file="penumbra_gui_check.tga" offset="0 0" active_size="-1 -1" color="0.45 0.45 0.45 1" material="Alpha" />
+    <Gfx type="MenuSeparatorLine" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="MenuItemArrow" file="penumbra_gui_arrow_right.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="TabLabelBorderRight" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabLabelBorderLeft" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabLabelBorderUp" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabLabelBorderDown" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabLabelCornerLU" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabLabelCornerRU" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabLabelCornerRD" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabLabelCornerLD" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabBorderRight" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabBorderLeft" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabBorderUp" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabBorderDown" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabCornerLU" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabCornerRU" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabCornerRD" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabCornerLD" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="TabLabelBackground" file="" offset="0 0" active_size="1 1" color="0.18 0.19 0.21 1" material="Alpha" />
+    <Gfx type="TabLabelBackgroundActive" file="" offset="0 0" active_size="1 1" color="0.40 0.30 0.16 1" material="Alpha" />
+    <Gfx type="TabBackground" file="" offset="0 0" active_size="1 1" color="0.11 0.12 0.13 1" material="Alpha" />
+    <Gfx type="TabFrameArrowLeft" file="penumbra_gui_arrow_left.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="TabFrameArrowRight" file="penumbra_gui_arrow_right.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="GroupBorderRight" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="GroupBorderLeft" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="GroupBorderUp" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="GroupBorderDown" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="GroupCornerLU" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="GroupCornerRU" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="GroupCornerRD" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="GroupCornerLD" file="" offset="0 0" active_size="1 1" color="0.36 0.38 0.42 1" material="Alpha" />
+    <Gfx type="GroupBackground" file="" offset="0 0" active_size="1 1" color="0.18 0.19 0.21 1" material="Alpha" />
+    <Gfx type="FilePickerUpButton" file="penumbra_gui_arrow_up.tga" offset="0 0" active_size="-1 -1" color="0.85 0.85 0.82 1" material="Alpha" />
+    <Gfx type="FilePickerIconGraphics" file="" offset="0 0" active_size="12 12" color="0.30 0.50 0.70 1" material="Alpha" />
+    <Gfx type="FilePickerIconModels" file="" offset="0 0" active_size="12 12" color="0.50 0.65 0.35 1" material="Alpha" />
+    <Gfx type="FilePickerIconSounds" file="" offset="0 0" active_size="12 12" color="0.70 0.55 0.30 1" material="Alpha" />
+    <Gfx type="FilePickerIconText" file="" offset="0 0" active_size="12 12" color="0.75 0.75 0.75 1" material="Alpha" />
+    <Gfx type="FilePickerIconOther" file="" offset="0 0" active_size="12 12" color="0.45 0.45 0.45 1" material="Alpha" />
+    <Gfx type="FilePickerIconFolder" file="" offset="0 0" active_size="12 12" color="0.58 0.44 0.24 1" material="Alpha" />
+  </GfxElements>
+</GuiSkin>

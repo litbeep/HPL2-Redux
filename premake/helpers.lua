@@ -269,6 +269,10 @@ function link_engine(target_layout, product)
     if product == "amfp" then
         engine_lib, angelscript_lib = "HPL2_AMFP", "AngelScript_AMFP"
         defines { "AMFP" }
+    elseif product == "penumbra" then
+        -- PENUMBRA: its own engine build (premake/hpl2.lua).
+        engine_lib, angelscript_lib = "HPL2_Penumbra", "AngelScript_AMFP"
+        defines { "PENUMBRA" }
     end
     links {
         engine_lib, "OALWrapper", angelscript_lib, "Newton", "tinyxml2", "fmt",

@@ -138,6 +138,10 @@ dofile "premake/deps/oalwrapper.lua"
 dofile "premake/hpl2.lua"
 dofile "premake/amnesia.lua"
 dofile "premake/amfp.lua"
+-- PENUMBRA: this fork's product, only with --product=penumbra.
+if product_is_selected("penumbra") then
+    dofile "premake/penumbra.lua"
+end
 if _OPTIONS["with-tools"] ~= "no" then
     dofile "premake/tools.lua"
 end

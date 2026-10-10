@@ -14,6 +14,8 @@ newoption {
     allowed = {
         { "amnesia", "Use the existing Amnesia runtime context" },
         { "amfp", "Prepare the Amnesia: A Machine for Pigs product context" },
+        -- PENUMBRA: this fork's product; only declared when selected.
+        { "penumbra", "Also build the Penumbra product (premake/penumbra.lua)" },
     },
     default = "amnesia",
 }

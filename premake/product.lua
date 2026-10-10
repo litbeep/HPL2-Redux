@@ -17,6 +17,14 @@ local PRODUCT_DEFINITIONS = {
         runtime = "amfp",
         project = "AmnesiaAMFP",
     },
+    -- PENUMBRA: unlike amfp, declared only when selected (premake5.lua), so the
+    -- default generation is unchanged.
+    penumbra = {
+        name = "penumbra",
+        product = "penumbra",
+        runtime = "penumbra",
+        project = "Penumbra",
+    },
 }
 
 -- Return a stable declaration object rather than making callers duplicate the

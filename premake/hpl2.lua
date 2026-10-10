@@ -173,3 +173,8 @@ end
 
 hpl2_engine_project("HPL2", { angelscript = "AngelScript" })
 hpl2_engine_project("HPL2_AMFP", { defines = { "AMFP" }, angelscript = "AngelScript_AMFP" })
+-- PENUMBRA: AMFP's AngelScript 2.24.1 with the std::string add-on, the value
+-- string type HPL1 registered for Penumbra's scripts (docs/penumbra-levels.md).
+if product_is_selected("penumbra") then
+    hpl2_engine_project("HPL2_Penumbra", { defines = { "PENUMBRA" }, angelscript = "AngelScript_AMFP" })
+end
