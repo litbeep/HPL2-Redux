@@ -55,10 +55,20 @@ namespace hpl {
 		virtual cAnimation* LoadAnimation(const tWString& asFile)=0;
 		virtual bool SaveAnimation(cAnimation* apAnimation, const tWString& asFile)=0;
 
+		// PENUMBRA: where the .msh cache of a source mesh is kept. With no cache
+		// directory set (the default) it sits next to the source file, as it always
+		// has. A product that loads meshes from a read-only game install sets a
+		// directory of its own, so nothing is written into the install.
+		static void SetMeshCacheDir(const tWString& asDir);
+		static tWString GetMeshCachePath(const tWString& asFile);
+
 	protected:
         cMaterialManager *mpMaterialManager;
 		cMeshManager *mpMeshManager;
 		cAnimationManager *mpAnimationManager;
+
+	private:
+		static tWString msMeshCacheDir; // PENUMBRA: see SetMeshCacheDir
 	};
 
 };

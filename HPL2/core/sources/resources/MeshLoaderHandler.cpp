@@ -25,6 +25,9 @@
 #include "resources/Resources.h"
 #include "scene/Scene.h"
 
+#include <cstdint>
+#include <cstdio>
+
 namespace hpl {
 
 	//////////////////////////////////////////////////////////////////////////
@@ -54,6 +57,35 @@ namespace hpl {
 
 	//-----------------------------------------------------------------------
 	
+	// PENUMBRA: the .msh cache location (iMeshLoader::SetMeshCacheDir).
+	tWString iMeshLoader::msMeshCacheDir;
+
+	void iMeshLoader::SetMeshCacheDir(const tWString& asDir)
+	{
+		msMeshCacheDir = asDir.empty() ? asDir : cString::AddSlashAtEndW(asDir);
+	}
+
+	tWString iMeshLoader::GetMeshCachePath(const tWString& asFile)
+	{
+		if(msMeshCacheDir.empty()) return cString::SetFileExtW(asFile, _W("msh"));
+
+		// One flat directory: the source's name plus a hash of its full path, so
+		// meshes with the same name in different directories get their own cache.
+		uint64_t lHash = 14695981039346656037ULL; // 64-bit FNV-1a
+		for(size_t i=0; i<asFile.size(); ++i)
+		{
+			lHash ^= (uint64_t)asFile[i];
+			lHash *= 1099511628211ULL;
+		}
+		char sHash[17];
+		snprintf(sHash, sizeof(sHash), "%016llx", (unsigned long long)lHash);
+
+		return msMeshCacheDir + cString::GetFileNameW(cString::SetFileExtW(asFile, _W(""))) +
+			   _W("_") + cString::To16Char(sHash) + _W(".msh");
+	}
+
+	//-----------------------------------------------------------------------
+
 	cMesh* cMeshLoaderHandler::LoadMesh(const tWString& asFile,tMeshLoadFlag aFlags)
 	{
 		iMeshLoader *pMeshLoader = static_cast<iMeshLoader*>(GetLoaderForFile(asFile));

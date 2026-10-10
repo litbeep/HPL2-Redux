@@ -141,7 +141,7 @@ namespace hpl {
 		// TRY USING MSH LOADER (transparent .msh cache, mirrors cMeshLoaderCollada)
 		if(mbLoadAndSaveMSHFormat)
 		{
-			tWString sMSHFile = cString::SetFileExtW(asFile, _W("msh"));
+			tWString sMSHFile = GetMeshCachePath(asFile); // PENUMBRA: was next to asFile
 			cDate currentDate = cPlatform::FileModifiedDate(asFile);
 			cDate mshDate = cPlatform::FileModifiedDate(sMSHFile);
 
@@ -436,7 +436,7 @@ namespace hpl {
 		// SAVE MSH FORMAT (cache)
 		if(cResources::GetForceCacheLoadingAndSkipSaving()==false && mbLoadAndSaveMSHFormat)
 		{
-			tWString sMSHFile = cString::SetFileExtW(asFile, _W("msh"));
+			tWString sMSHFile = GetMeshCachePath(asFile); // PENUMBRA: was next to asFile
 			mpMeshLoaderMSH->SaveMesh(pMesh, sMSHFile);
 		}
 
