@@ -51,7 +51,7 @@
 #include "SDL/SDL.h"
 #endif
 
-#ifdef AMFP
+#if ANGELSCRIPT_VERSION >= 22400 // PENUMBRA: was #ifdef AMFP; keyed on the AngelScript build
 #include "impl/scriptstdstring.h"
 #include "impl/scriptarray.h"
 #else
@@ -360,7 +360,7 @@ cLowLevelSystemSDL::cLowLevelSystemSDL() {
   mpScriptEngine->SetMessageCallback(asMETHOD(cScriptOutput, AddMessage),
                                      mpScriptOutput, asCALL_THISCALL);
 
-#ifdef AMFP
+#if ANGELSCRIPT_VERSION >= 22400 // PENUMBRA: was #ifdef AMFP; keyed on the AngelScript build
   RegisterStdString(mpScriptEngine);
   RegisterScriptArray(mpScriptEngine, true);
 #else

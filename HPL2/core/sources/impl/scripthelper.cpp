@@ -23,7 +23,7 @@ int ExecuteString(asIScriptEngine *engine, const char *code, asIScriptModule *mo
 
 	// If no context was provided, request a new one from the engine
 	asIScriptContext *execCtx = ctx ? ctx : engine->CreateContext();
-#ifdef AMFP
+#if ANGELSCRIPT_VERSION >= 22400 // PENUMBRA: was #ifdef AMFP; keyed on the AngelScript build
 	r = execCtx->Prepare(func); // AngelScript 2.24 takes the function itself
 #else
 	r = execCtx->Prepare(func->GetId());

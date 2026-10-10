@@ -180,7 +180,7 @@ namespace hpl {
 
 	int cSqScript::GetFuncHandle(const tString& asFunc)
 	{
-#ifdef AMFP
+#if ANGELSCRIPT_VERSION >= 22400 // PENUMBRA: was #ifdef AMFP; keyed on the AngelScript build
 		// AngelScript 2.24 hides the id-based API behind AS_DEPRECATED.
 		asIScriptFunction *pFunc = mpModule->GetFunctionByName(asFunc.c_str());
 		return pFunc ? pFunc->GetId() : -1;
@@ -209,7 +209,7 @@ namespace hpl {
 
 	bool cSqScript::Run(int alHandle)
 	{
-#ifdef AMFP
+#if ANGELSCRIPT_VERSION >= 22400 // PENUMBRA: was #ifdef AMFP; keyed on the AngelScript build
 		mpContext->Prepare(mpScriptEngine->GetFunctionById(alHandle));
 #else
 		mpContext->Prepare(alHandle);
