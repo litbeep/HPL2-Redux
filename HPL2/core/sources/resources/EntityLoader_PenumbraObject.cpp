@@ -1,4 +1,6 @@
 // PENUMBRA: HPL1 entity loading, based on Frictional's GPL HPL1 via Antumbra.
+// Built only into the Penumbra engine (HPL2_Penumbra); other products get an empty unit.
+#ifdef PENUMBRA
 #include "resources/EntityLoader_PenumbraObject.h"
 #include "resources/WorldLoaderPenumbraCollada.h"
 #include "resources/WorldLoaderHandler.h"
@@ -33,6 +35,7 @@
 #include "tinyxml2.h"
 #include <algorithm>
 #include <map>
+#include <memory>
 
 namespace hpl {
 
@@ -139,6 +142,24 @@ namespace hpl {
 			joint->AddController(controller);
 			return true;
 		}
+
+		// The original model XML, read once per model and level: the bodies,
+		// joints and effects HPL1 authored in it are not in the .msh cache, and
+		// a level places the same door or crate many times.
+		struct cParsedModel
+		{
+			tColladaGeometryVec mvGeometry;
+			tColladaLightVec mvLights;
+			cColladaScene mScene;
+		};
+		std::map<tWString, std::unique_ptr<cParsedModel>> gmapParsedModels;
+		cWorld* gpParsedModelsWorld = nullptr;
+
+		std::unique_ptr<cParsedModel>& ParsedModel(const tWString& path, cWorld* world)
+		{
+			if(world != gpParsedModelsWorld) { gmapParsedModels.clear(); gpParsedModelsWorld = world; }
+			return gmapParsedModels[path];
+		}
 	}
 
 	iEntity3D* cEntityLoader_PenumbraObject::Load(const tString& name, int id, bool active,
@@ -152,13 +173,21 @@ namespace hpl {
 		const tString model = GetAttributeString(graphics, "ModelFile");
 		const tWString modelPath = resources->GetFileSearcher()->GetFilePath(cString::SetFileExt(model, "dae"));
 		auto* parser = dynamic_cast<cMeshLoaderCollada*>(resources->GetMeshLoaderHandler()->GetLoaderForFile(modelPath));
-		tColladaGeometryVec geometry; tColladaLightVec lights; cColladaScene scene;
-		if(!parser || !parser->FillStructures(modelPath, nullptr, nullptr, nullptr, &lights,
-			&geometry, nullptr, nullptr, &scene, false))
+		auto& parsed = ParsedModel(modelPath, world);
+		if(!parsed && parser)
+		{
+			auto model = std::make_unique<cParsedModel>();
+			if(parser->FillStructures(modelPath, nullptr, nullptr, nullptr, &model->mvLights,
+				&model->mvGeometry, nullptr, nullptr, &model->mScene, false)) parsed = std::move(model);
+		}
+		if(!parsed)
 		{
 			Error("Penumbra: could not read original entity model '%s'\n", model.c_str());
 			return nullptr;
 		}
+		tColladaGeometryVec& geometry = parsed->mvGeometry;
+		tColladaLightVec& lights = parsed->mvLights;
+		cColladaScene& scene = parsed->mScene;
 		// The model is the .dae parsed above. Without the extension, the mesh
 		// manager takes the first supported type it finds, and installs ship
 		// other files with the model's name (an .anm read as a mesh overflows).
@@ -437,3 +466,4 @@ namespace hpl {
 		return entity;
 	}
 }
+#endif // PENUMBRA

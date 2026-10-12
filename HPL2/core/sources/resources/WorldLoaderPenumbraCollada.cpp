@@ -1,5 +1,7 @@
 // PENUMBRA: HPL1 scene loading, based on Frictional's GPL HPL1
 // MeshLoaderCollada (via Antumbra). Distributed under GPLv3 or later.
+// Built only into the Penumbra engine (HPL2_Penumbra); other products get an empty unit.
+#ifdef PENUMBRA
 #include "resources/WorldLoaderPenumbraCollada.h"
 #include "resources/Resources.h"
 #include "resources/MeshLoaderHandler.h"
@@ -416,39 +418,37 @@ namespace hpl {
 			}
 			else if(cColladaGeometry* pGeometry = apParser->GetGeometry(apNode->msSource, avGeometry))
 			{
+				const bool bHasTriangles = !pGeometry->mvVertexVec.empty() && !pGeometry->mvIndexVec.empty();
+				// A material whose texture names no image is drawn untextured.
+				const tString sMaterialId = apNode->msInstanceMaterial.empty() ? pGeometry->msMaterial : apNode->msInstanceMaterial;
+				bool bUntextured = false;
+				for(const cColladaMaterial& mat : avMaterials)
+					if(mat.msId == sMaterialId)
+						for(const cColladaTexture& tex : avTextures)
+							if(tex.msId == cString::Sub(mat.msTexture, !mat.msTexture.empty() && mat.msTexture[0] == '#' ? 1 : 0) && tex.msImage.empty()) bUntextured = true;
+				const tString sMaterial = bUntextured ? "" : apParser->GetMaterialTextureFile(sMaterialId, avMaterials, avTextures, avImages);
+
 				// Invisible static meshes still collide, unless explicitly disabled.
-				if(!HasParam(vParams, "nocollide") && !pGeometry->mvVertexVec.empty() && !pGeometry->mvIndexVec.empty())
+				if(!HasParam(vParams, "nocollide") && bHasTriangles)
 				{
-					const tString id = apNode->msInstanceMaterial.empty() ? pGeometry->msMaterial : apNode->msInstanceMaterial;
-					bool untextured = false;
-					for(const auto& mat : avMaterials) if(mat.msId == id)
-						for(const auto& tex : avTextures) if(tex.msId == cString::Sub(mat.msTexture, !mat.msTexture.empty() && mat.msTexture[0]=='#' ? 1 : 0) && tex.msImage.empty()) untextured = true;
-					const tString mat = untextured ? "" : apParser->GetMaterialTextureFile(id, avMaterials, avTextures, avImages);
 					auto* pBuffer = apParser->CreateVertexBuffer(*pGeometry, eVertexBufferUsageType_Static);
 					pBuffer->Transform(apNode->m_mtxWorldTransform);
-					AddMeshBody(apNode, apWorld, pBuffer, mat, vParams);
+					AddMeshBody(apNode, apWorld, pBuffer, sMaterial, vParams);
 					hplDelete(pBuffer);
 				}
-				if(!HasParam(vParams, "nodraw") && !pGeometry->mvVertexVec.empty() && !pGeometry->mvIndexVec.empty())
+				if(!HasParam(vParams, "nodraw") && bHasTriangles)
 				{
-					const tString sMaterialId = apNode->msInstanceMaterial.empty() ? pGeometry->msMaterial : apNode->msInstanceMaterial;
-					bool bUntextured = false;
-					for(const cColladaMaterial& mat : avMaterials)
-						if(mat.msId == sMaterialId)
-							for(const cColladaTexture& tex : avTextures)
-								if(tex.msId == cString::Sub(mat.msTexture, mat.msTexture[0] == '#' ? 1 : 0) && tex.msImage.empty()) bUntextured = true;
-					tString sMaterial = bUntextured ? "" : apParser->GetMaterialTextureFile(sMaterialId, avMaterials, avTextures, avImages);
-					auto material = bUntextured ? mpResources->GetMaterialManager()->CreateCustomMaterial(
-						"penumbra_untextured_" + apNode->msName, mpGraphics->GetMaterialType("soliddiffuse")) :
-						mpResources->GetMaterialManager()->CreateMaterial(sMaterial);
-					if(!material)
+					SharedResourceHandle<cMaterial> material;
+					if(!bUntextured)
 					{
-						// The install lacks it (some point at the artist's own disk).
+						material = mpResources->GetMaterialManager()->CreateMaterial(sMaterial);
+						// The install lacks some (they point at the artist's own disk).
 						// Draw the geometry untextured rather than not at all.
-						Warning("Penumbra: material '%s' for '%s' missing; drawn untextured\n", sMaterial.c_str(), apNode->msName.c_str());
+						if(!material) Warning("Penumbra: material '%s' for '%s' missing; drawn untextured\n", sMaterial.c_str(), apNode->msName.c_str());
+					}
+					if(!material)
 						material = mpResources->GetMaterialManager()->CreateCustomMaterial(
 							"penumbra_untextured_" + apNode->msName, mpGraphics->GetMaterialType("soliddiffuse"));
-					}
 					if(material)
 					{
 						cMesh* pMesh = hplNew(cMesh, (apNode->msName, _W(""), mpResources->GetMaterialManager(), mpResources->GetAnimationManager()));
@@ -531,3 +531,4 @@ namespace hpl {
 			AddSceneObjects(pChild, apWorld, apParser, avGeometry, avLights, avMaterials, avTextures, avImages, aFlags);
 	}
 }
+#endif // PENUMBRA
