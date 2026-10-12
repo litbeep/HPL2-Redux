@@ -142,3 +142,75 @@ an absolute comparison (`|actual - expected| <= epsilon`) and reject NaN;
 preserve the original predicate for relative or strict comparisons. During
 future migrations preserve numeric tolerances exactly, including their
 comparison semantics.
+
+## Penumbra map viewer smoke checks
+
+Build the Penumbra product, then close other Penumbra viewer instances.
+The standalone GPU check creates original Collada/material/texture fixtures
+in a temporary directory; it needs no retail assets. Pass the actual user
+log path (the viewer logs it during startup):
+
+```powershell
+python tests/penumbra_map_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "D:\Documents\Penumbra Redux\penumbra.log"
+```
+
+It runs Y-up and Z-up maps through standard and ray-traced renderers,
+checks material aliases, room hierarchy, helper exclusion, colliders,
+HPL1 sound variants, particles, billboards and beams. It also verifies
+bounded frame counts and a missing entrance failure, then checks that a
+walking character lands on a floor and two rigid boxes fall and stack.
+The longer physics run also requires live particles and an active sound
+channel, using an original silent PCM fixture rather than retail audio.
+Fixture file hashes detect writes into the source install. Ray tracing requires
+supported GPU hardware. This test checks execution and loader results,
+not image fidelity, and creates no game screenshots or converted assets.
+
+Entity checks use generated models to load `Object`, `Item`, `Lamp`,
+`Enemy` and `SwingDoor`, check falling bodies, a moving limited hinge,
+HPL1 geometry-name material overrides and unchanged install file hashes:
+
+```powershell
+python tests/penumbra_entity_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "D:\Documents\Penumbra Redux\penumbra.log"
+```
+
+Optionally add `--test-install <Antumbra test-install directory>` to check
+four animated skinned instances in `maptest0_anim.dae`, including active
+animation clocks and changing bone positions on both renderers. The test
+install is downloaded/built externally and must never be committed.
+
+Area checks generate Y-up and Z-up maps with all eight types and a generic
+area, and check names, scaled bounds, parent transforms, debug-enabled
+rendering and unchanged source-file hashes on both renderers:
+
+```powershell
+python tests/penumbra_area_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "D:\Documents\Penumbra Redux\penumbra.log"
+```
+
+These integration scripts open game windows. Run them when desktop use is
+appropriate; they are separate from the regular Python test runner.
+
+## Penumbra headless script checks
+
+This check opens no windows, initializes no graphics/audio, and uses no
+desktop input. It exercises original AngelScript fixtures, timer callbacks,
+variables, messages, inventory, map lifecycle and link transitions, as well
+as compilation errors, runaway scripts and missing destination entrances:
+
+```powershell
+python tests/penumbra_script_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "D:\Documents\Penumbra Redux\penumbra.log"
+```
+
+Optionally pass `--game <Overture install>` to exercise the unchanged boat
+script, simulated item pickup callbacks and the timed exit to the outside
+map. This verifies script execution and the transition request, rather than
+GPU rendering, physical interaction or live world replacement. Script-file
+hashes detect writes into the install. Nothing derived from retail assets is
+saved in the repository.
+
+The runtime's `--script-check --script-steps N` executes fixed 60 Hz ticks.
+`--script-action <tick:action:name>` schedules a headless event (`pickup`,
+`interact`, `examine`, `dismiss` or `invoke`). The last two need no entity
+name or use a zero-argument script function respectively. `--script-api-status
+<absolute file>` writes the current function table. Regenerate the GPL ABI
+declarations with `python scripts/gen_penumbra_script_api.py <Antumbra checkout>`
+when deliberately updating the reference, then rebuild.
