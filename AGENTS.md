@@ -13,6 +13,35 @@ Read `docs/penumbra-levels.md` first: it is the current plan (Penumbra
 levels booting in HPL2). Upstream's README and `BUILD.md` cover building and
 running Amnesia.
 
+## Where this is going
+
+The aim is a standalone reimagining of the Penumbra series, not a straight
+port (that is Antumbra) and not a mod for a newer Frictional game. Levels
+are rebuilt, and remastered or expanded where it helps, from a kitbashed
+building set made of Penumbra's own meshes. The visual target is close to
+Amnesia: Rebirth and The Bunker.
+
+What follows from that:
+
+- Loading the original levels unchanged (the current plan) is the
+  foundation and the baseline for comparisons, not the finished product.
+- The project's own maps and data files are original work and may be
+  committed. They refer to the install's meshes, textures and sounds by
+  name and never contain or embed them.
+- Better materials (higher resolution, roughness and other PBR maps) are
+  either new original art or made on the player's machine from their
+  install and cached in the user directory, like `.msh` caches. Never
+  generate them into the repository.
+- The renderer is already modern (Vulkan/D3D12, ray tracing). Most of the
+  remaining visual gap is art and lighting, so treat fidelity as a problem
+  for the art pipeline and tools rather than a reason to rewrite the
+  renderer.
+- Kitbashing needs the level editor to place install meshes directly
+  (milestone 7 of the plan). Work that brings that closer counts for more
+  than polishing the viewer.
+- Prove ideas on one Overture level end to end before broadening to the
+  whole trilogy.
+
 ## The sister project: Antumbra
 
 Antumbra (`litbeep/antumbra`) is the faithful source port of Penumbra on
