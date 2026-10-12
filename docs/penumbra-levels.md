@@ -166,7 +166,8 @@ units above the entrance. `--renderer standard` selects the standard
 renderer; `--renderer raytraced` selects ray tracing. Without an override,
 the product config selects the renderer. `--frames 24` runs a bounded check
 in the background: windowed, shown without taking focus, and without
-grabbing the mouse. Missing entrances fail before the render loop.
+grabbing the mouse. With `--travel all` (or a list of `map[:start]`), it
+then changes map to each level in turn, `--frames` frames each. Missing entrances fail before the render loop.
 
 The loader preserves room hierarchy and world transforms, hides portal and
 other helper geometry, honors `nodraw`/`noshadow`, and loads point/spot
@@ -407,6 +408,46 @@ still exit with 1 when any script error occurred.
 
 **Done when:** all Overture levels load with no errors in the log and can
 be travelled through in order.
+
+**Done on Windows/D3D12 with a retail Overture install.** All 25 levels load,
+render on both renderers and run their scripts (600 headless ticks) with no
+error in the log other than defects in Overture's own data, which HPL1 can't
+load either. `--travel all` changes map through every level in one process,
+the same world replacement a link makes, on both renderers. The scripts'
+SetupLink and ChangeMap calls lead to existing maps, and every level can be
+reached from the boat cabin.
+
+`scripts/penumbra_level_sweep.py` runs the sweep and writes a report next to
+the log (it names the install's files: never commit it). It groups problems
+by frequency, files understood messages under "known and harmless" with the
+reason, lists the script functions still stubs, and checks the links. The
+first sweep found, and this milestone fixed:
+
+- Crashes. A model with a node inside a node of the same name made a node
+  its own child (`cMeshEntity::CreateNodes` matched by name; now by node).
+  An entity model asked for without its extension was read from an `.anm`
+  file of the same name. Newton crashes building a tree collision with one
+  face, so a one-triangle level mesh gets its back face as a second.
+- Scripts. HPL1's scripts use `T[]` arrays with initialisation lists (now
+  registered, as Antumbra does) and `if(x);`, which later AngelScript
+  versions reject; it is rewritten as `if(x){}`, which means the same.
+- Data HPL1 tolerated: unquoted XML attribute values; animated textures
+  named by their base name (`x.jpg` for `x01.jpg`, `x02.jpg`...);
+  `PlayGuiSound` names with numbered variants (`name1.ogg`...), played at
+  random as HPL1 does; links naming a missing entrance, which put the player
+  at the level's first one, as HPL1 does.
+- Level geometry whose material is missing is drawn untextured.
+
+Unhandled crashes write the stack to the log (`penumbra/src/game/CrashLog.cpp`,
+Windows). The data defects: `modern_mine_cardboardbox` has no material or
+texture, `mining_room_book.dae`'s texture points at the artist's disk, a map
+references `kitchen_whisketbottle.ent` (sic) and `dust_sust01.ps`, and some
+models' physics settings or joints name bodies without colliders.
+
+Still open, and left to the gameplay work: the 30 script functions that are
+stubs (most used: `SetMapGameNameTrans`, `PreloadSound`, `AutoSave`,
+`SetSkybox`, `SetDoorLocked`, `SetLampLit`) and the area behaviours.
+Black Plague and Requiem have not been swept.
 
 ### 7. Later: editing and the other games
 

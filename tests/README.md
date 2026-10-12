@@ -186,15 +186,18 @@ rendering and unchanged source-file hashes on both renderers:
 python tests/penumbra_area_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "D:\Documents\Penumbra Redux\penumbra.log"
 ```
 
-These integration scripts open game windows. Run them when desktop use is
-appropriate; they are separate from the regular Python test runner.
+These integration scripts open game windows. Bounded `--frames` runs open
+them in the background, without taking focus or grabbing the mouse. They
+are separate from the regular Python test runner.
 
 ## Penumbra headless script checks
 
 This check opens no windows, initializes no graphics/audio, and uses no
 desktop input. It exercises original AngelScript fixtures, timer callbacks,
-variables, messages, inventory, map lifecycle and link transitions, as well
-as compilation errors, runaway scripts and missing destination entrances:
+variables, messages, inventory, map lifecycle and link transitions, HPL1-era
+script forms (arrays, empty if statements), compilation and runtime errors,
+runaway scripts, and links to a missing entrance (the first one is used, as
+in HPL1):
 
 ```powershell
 python tests/penumbra_script_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "D:\Documents\Penumbra Redux\penumbra.log"
@@ -214,3 +217,28 @@ name or use a zero-argument script function respectively. `--script-api-status
 <absolute file>` writes the current function table. Regenerate the GPL ABI
 declarations with `python scripts/gen_penumbra_script_api.py <Antumbra checkout>`
 when deliberately updating the reference, then rebuild.
+
+## Penumbra level sweep
+
+Milestone 6's check against a real install: every map in its `maps/`
+directory is rendered for `--frames` frames in the background and its script
+run headless, and the scripts' links are checked (every link leads to an
+existing map; every level is reachable from the first):
+
+```powershell
+python scripts/penumbra_level_sweep.py --exe build-premake/penumbra/Release/Penumbra.exe --log "<Documents>\Penumbra Redux\penumbra.log" --game "<Penumbra Overture install>"
+```
+
+It exits with 1 if a level fails to load or render, a script check fails, or
+a link is broken, and writes `level-sweep.md` next to the log: problems by
+frequency, known and harmless messages with their reasons, and the script
+functions still stubs. The report names the install's files; never commit
+it. `--only <name>...` limits the sweep; `--renderer raytraced` uses the
+other renderer.
+
+To travel through every level in one process, through the same map change a
+link makes:
+
+```powershell
+.\build-premake\penumbra\Release\Penumbra.exe --game "<Penumbra Overture install>" --map level00_01_boat_cabin.dae --start link1 --frames 60 --travel all
+```
