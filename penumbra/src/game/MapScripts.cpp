@@ -1,6 +1,6 @@
 // GPLv3 or later. HPL1 script API adapted from Frictional's releases via Antumbra.
 #include "MapScripts.h"
-#include "GameInstall.h"
+#include "InstallResources.h"
 #include "impl/scriptarray.h"
 #include "impl/scriptstdstring.h"
 #include "engine/Engine.h"
@@ -10,15 +10,8 @@
 #include "scene/Camera.h"
 #include "scene/MeshEntity.h"
 #include "scene/Light.h"
-#include "scene/LightBox.h"
-#include "scene/LightParameters.h"
-#include "scene/SoundEntity.h"
-#include "scene/ParticleSystem.h"
 #include "physics/PhysicsWorld.h"
 #include "physics/PhysicsBody.h"
-#include "sound/Sound.h"
-#include "sound/MusicHandler.h"
-#include "sound/SoundHandler.h"
 #include "system/LowLevelSystem.h"
 #include "system/String.h"
 #include <tinyxml2.h>
@@ -27,7 +20,6 @@
 #include <cmath>
 #include <fstream>
 #include <new>
-#include <sstream>
 
 using namespace hpl;
 namespace fs = std::filesystem;
@@ -65,33 +57,12 @@ namespace {
 	std::string Lower(std::string text) { for(char& c : text) c = char(std::tolower(static_cast<unsigned char>(c))); return text; }
 	std::string Attr(const tinyxml2::XMLElement* element, const char* name) { const auto* s = element->Attribute(name); return s ? s : ""; }
 	bool Ends(const std::string& text, const std::string& ending) { return text.size() >= ending.size() && text.compare(text.size()-ending.size(),ending.size(),ending) == 0; }
-	float LegacyLightValue(iLight* light, float radius, const cColor& color)
-	{
-		if(light->GetLightModel()==eLightModel_Legacy) return radius;
-		cLegacyLightParameters legacy; legacy.mfRadius=radius;
-		return PromoteLegacyLightParameters(legacy,color.r,color.g,color.b).mfIntensity;
-	}
-	const std::set<std::string> kDone = {
-		"Print","FloatToString","IntToString","RandFloat","RandInt","StringContains","Translate",
-		"CreateLocalVar","SetLocalVar","AddLocalVar","GetLocalVar","CreateGlobalVar","SetGlobalVar","AddGlobalVar","GetGlobalVar",
-		"CreateTimer","DestroyTimer","SetTimerPaused","SetTimerTime","AddTimerTime","GetTimerTime",
-		"AddToTempString","AddToTempStringTrans","AddToTempStringAction","GetActionKeyString",
-		"AddMessage","AddMessageTrans","AddMessageTempString","SetMessagesOverCallback","AddSubTitle","AddSubTitleTrans","AddSubTitleTempString",
-		"ChangeMap","SetupLink","SetupLinkLoadText","SetPlayerActive","FadeIn","FadeOut","IsFading","SetWideScreenActive",
-		"HasItem","GiveItem","RemoveItem","AddPickupCallback","RemovePickupCallback","AddUseCallback","RemoveUseCallback",
-		"AddEntityCallback","RemoveEntityCallback","AddEntityCollideCallback","RemoveEntityCollideCallback",
-		"SetGameEntityActive","GetGameEntityActive","SetGameEntityDescription","SetGameEntityDescriptionTrans","SetGameEntityDescriptionOnceTrans",
-		"CreateGameEntityVar","SetGameEntityVar","AddGameEntityVar","GetGameEntityVar",
-		"PlaySoundEntity","StopSoundEntity","FadeInSoundEntity","FadeOutSoundEntity","PlayMusic","StopMusic","PlayGameMusic","StopGameMusic","PlayGuiSound",
-		"SetAmbientColor","SetSkyboxActive","SetSkyboxColor","SetFogActive","SetFogCulling","SetFogProperties","SetLight3DVisible","SetLight3DFlickerActive","SetLight3DFlicker","FadeLight3D","SetMeshActive","SetParticleSystemActive","KillParticleSystem",
-		"SetWaveGravityActive","SetupWaveGravity","StartPlayerLookAt","StopPlayerLookAt",
-	};
-	const std::set<std::string> kPartial = {"SetupLadder","SetupDamageArea","SetupForceArea","SetupLiquidArea","SetupStickArea","SetupSaveArea","SetAreaCustomIcon"};
-	const std::set<std::string> kApproximate = {"AddEntityCollideCallback","SetAmbientColor","ChangeMap","SetupLink","SetupLinkLoadText","PlayGameMusic","StopGameMusic"};
 }
 
-const char* cMapScripts::Status(const std::string& name) { return kApproximate.count(name) || kPartial.count(name) ? "partial" : kDone.count(name) ? "done" : "stub"; }
-bool cMapScripts::WriteApiStatus(const fs::path& path)
+void cScriptCall::Return(const std::string& value) { new(mpCall->GetAddressOfReturnLocation()) std::string(value); }
+
+const char* cMapScripts::Status(const std::string& name) const { return mPartial.count(name) ? "partial" : mHandlers.count(name) ? "done" : "stub"; }
+bool cMapScripts::WriteApiStatus(const fs::path& path) const
 {
 	std::ofstream out(path);
 	out << "# Penumbra script API\n\nGPL HPL1 reference: Antumbra `engine/game/ScriptFuncs.cpp` and `penumbra-overture/GameScripts.cpp`.\n\n"
@@ -127,9 +98,14 @@ cMapScripts::cMapScripts(const fs::path& root, cEngine* engine, const std::strin
 	// As HPL1 (Antumbra) did: arrays, with T[] as array<T>, then strings.
 	RegisterScriptArray(mpScriptEngine,true);
 	RegisterStdString(mpScriptEngine);
+	AddHandlers();
 	for(const auto& api : kApi)
-		if(mpScriptEngine->RegisterGlobalFunction(api.declaration,asFUNCTION(Generic),asCALL_GENERIC)<0)
-		{ Error("Penumbra: failed script registration '%s'\n",api.declaration); mbFailed=true; }
+	{
+		const int id=mpScriptEngine->RegisterGlobalFunction(api.declaration,asFUNCTION(Generic),asCALL_GENERIC);
+		if(id<0) { Error("Penumbra: failed script registration '%s'\n",api.declaration); mbFailed=true; continue; }
+		const auto handler=mHandlers.find(api.name);
+		mHandlerById[id]=handler==mHandlers.end() ? nullptr : &handler->second;
+	}
 }
 
 cMapScripts::~cMapScripts() { if(mpScriptEngine) mpScriptEngine->Release(); }
@@ -146,7 +122,11 @@ void cMapScripts::Budget(asIScriptContext* context, void* runtime)
 fs::path cMapScripts::FindFile(const std::string& name) const
 {
 	auto it = mFiles.find(Lower(fs::path(name).filename().string()));
-	return it == mFiles.end() ? fs::path() : it->second;
+	if(it != mFiles.end()) return it->second;
+	// Files outside the install, such as the project's own maps in the user
+	// directory, through the engine's resource directories.
+	const tWString sPath = mpEngine ? mpEngine->GetResources()->GetFileSearcher()->GetFilePath(fs::path(name).filename().string()) : tWString();
+	return sPath.empty() ? fs::path() : penumbra::FromUtf8(cString::To8Char(sPath));
 }
 std::string cMapScripts::Translate(const std::string& category, const std::string& entry) const
 {
@@ -482,129 +462,26 @@ void cMapScripts::ChangeMap(const cLink& link)
 	mfFadeTarget=1; mfFadeSpeed=link.fadeOut>0 ? 1/link.fadeOut : 0; if(link.fadeOut<=0) mfFadeAlpha=1;
 	Log("Penumbra ChangeMap: %s -> %s, start '%s'\n",msMap.c_str(),msNextMap.c_str(),msNextStart.c_str());
 }
-void cMapScripts::Generic(asIScriptGeneric* call) { static_cast<cMapScripts*>(call->GetEngine()->GetUserData())->Dispatch(call); }
-
-void cMapScripts::Dispatch(asIScriptGeneric* call)
+void cMapScripts::Handle(std::initializer_list<const char*> names, tHandler handler, bool partial)
 {
-	const std::string name=call->GetFunction()->GetName();
-	auto s=[&](unsigned i)->const std::string& { return *static_cast<std::string*>(call->GetArgObject(i)); };
-	auto f=[&](unsigned i) { return call->GetArgFloat(i); };
-	auto n=[&](unsigned i) { return int(call->GetArgDWord(i)); };
-	auto b=[&](unsigned i) { return call->GetArgByte(i)!=0; };
-	auto text=[&](const std::string& value) { new(call->GetAddressOfReturnLocation()) std::string(value); };
-	if(name=="Print") Log("Penumbra script: %s\n",s(0).c_str());
-	else if(name=="FloatToString") { std::ostringstream out; out<<f(0); text(out.str()); }
-	else if(name=="IntToString") text(std::to_string(n(0)));
-	else if(name=="RandFloat") call->SetReturnFloat(cMath::RandRectf(f(0),f(1)));
-	else if(name=="RandInt") call->SetReturnDWord(cMath::RandRectl(n(0),n(1)));
-	else if(name=="StringContains") call->SetReturnByte(s(0).find(s(1))!=std::string::npos);
-	else if(name=="Translate") text(Translate(s(0),s(1)));
-	else if(name.find("LocalVar")!=std::string::npos || name.find("GlobalVar")!=std::string::npos)
+	for(const char* name : names)
 	{
-		auto& vars=name.find("Local")!=std::string::npos ? mLocalVars : mGlobalVars;
-		if(name.compare(0,3,"Get")==0) call->SetReturnDWord(vars[s(0)]);
-		else if(name.compare(0,3,"Add")==0) vars[s(0)]+=n(1);
-		else if(name.compare(0,6,"Create")==0) vars.emplace(s(0),n(1)); else vars[s(0)]=n(1);
+		mHandlers[name]=handler;
+		if(partial) mPartial.insert(name);
 	}
-	else if(name.find("GameEntityVar")!=std::string::npos)
-	{
-		const std::string key=s(0)+"/"+s(1);
-		if(name.compare(0,3,"Get")==0) call->SetReturnDWord(mEntityVars[key]);
-		else if(name.compare(0,3,"Add")==0) mEntityVars[key]+=n(2); else mEntityVars[key]=n(2);
-	}
-	else if(name=="CreateTimer") mTimers[s(0)]={std::max(0.0f,f(1)),s(2),b(3)};
-	else if(name=="DestroyTimer") mTimers.erase(s(0));
-	else if(name=="GetTimerTime") { const auto it=mTimers.find(s(0)); call->SetReturnFloat(it==mTimers.end() ? 0 : it->second.time); }
-	else if(name=="SetTimerPaused" || name=="SetTimerTime" || name=="AddTimerTime")
-	{
-		auto it=mTimers.find(s(0)); if(it!=mTimers.end()) { if(name=="SetTimerPaused") it->second.paused=b(1); else if(name=="SetTimerTime") it->second.time=f(1); else it->second.time+=f(1); }
-	}
-	else if(name=="AddToTempString") msTempString+=s(0);
-	else if(name=="AddToTempStringTrans") msTempString+=Translate(s(0),s(1));
-	else if(name=="AddToTempStringAction" || name=="GetActionKeyString")
-	{
-		const std::string key=s(0)=="Interact" ? Translate("ScriptUI","InteractKey") : s(0)=="Examine" ? Translate("ScriptUI","ExamineKey") : s(0)=="Inventory" ? Translate("ScriptUI","UseKey") : s(0);
-		if(name=="GetActionKeyString") text(key); else msTempString+=key;
-	}
-	else if(name=="AddMessage") { if(!s(0).empty()) mMessages.push_back(s(0)); }
-	else if(name=="AddMessageTrans") { const auto message=Translate(s(0),s(1)); if(!message.empty()) mMessages.push_back(message); }
-	else if(name=="AddMessageTempString") { if(!msTempString.empty()) mMessages.push_back(msTempString); msTempString.clear(); }
-	else if(name=="SetMessagesOverCallback") msMessagesCallback=s(0);
-	else if(name=="AddSubTitle" || name=="AddSubTitleTrans" || name=="AddSubTitleTempString")
-	{
-		msSubtitle=name=="AddSubTitle" ? s(0) : name=="AddSubTitleTrans" ? Translate(s(0),s(1)) : msTempString;
-		mfSubtitleTime=f(name=="AddSubTitle" ? 1 : name=="AddSubTitleTrans" ? 2 : 0); if(name=="AddSubTitleTempString") msTempString.clear();
-	}
-	else if(name=="SetPlayerActive") mbPlayerActive=b(0);
-	else if(name=="StartPlayerLookAt") { msLookTarget=s(0); mfLookSpeed=f(1); mfLookMaxSpeed=f(2); }
-	else if(name=="StopPlayerLookAt") msLookTarget.clear();
-	else if(name=="SetupWaveGravity") { mfWaveAngle=f(0); mfWavePeriod=std::max(0.001f,f(1)); mfGravity=f(2); msWaveAxis=Lower(s(3)); }
-	else if(name=="SetWaveGravityActive") { mbWaveGravity=b(0); if(mpWorld && !mbWaveGravity) mpWorld->GetPhysicsWorld()->SetGravity(cVector3f(0,-mfGravity,0)); }
-	else if(name=="SetWideScreenActive") mbWideScreen=b(0);
-	else if(name=="FadeIn" || name=="FadeOut") { mfFadeTarget=name=="FadeIn" ? 0.0f : 1.0f; mfFadeSpeed=f(0)>0 ? std::abs(mfFadeTarget-mfFadeAlpha)/f(0) : 0; if(f(0)<=0) mfFadeAlpha=mfFadeTarget; }
-	else if(name=="IsFading") call->SetReturnByte(std::abs(mfFadeAlpha-mfFadeTarget)>1e-5f);
-	else if(name=="HasItem") call->SetReturnByte(mInventory.count(s(0))!=0);
-	else if(name=="GiveItem") mInventory.insert(s(0));
-	else if(name=="RemoveItem") mInventory.erase(s(0));
-	else if(name=="AddPickupCallback") mPickupCallbacks[s(0)]=s(1);
-	else if(name=="RemovePickupCallback") mPickupCallbacks.erase(s(0));
-	else if(name=="AddUseCallback") mUseCallbacks[s(0)+"/"+s(1)]=s(2);
-	else if(name=="RemoveUseCallback") { for(auto it=mUseCallbacks.begin();it!=mUseCallbacks.end();) if(it->second==s(0)) it=mUseCallbacks.erase(it); else ++it; }
-	else if(name=="AddEntityCallback") mEntityCallbacks[s(0)+"/"+s(1)]=s(2);
-	else if(name=="RemoveEntityCallback") mEntityCallbacks.erase(s(0)+"/"+s(1));
-	else if(name=="AddEntityCollideCallback") mCollideCallbacks.push_back({s(0),s(1),s(2),s(3)});
-	else if(name=="RemoveEntityCollideCallback") { mCollideCallbacks.erase(std::remove_if(mCollideCallbacks.begin(),mCollideCallbacks.end(),[&](const cCollide& cb) { return cb.event==s(0) && cb.parent==s(1) && cb.child==s(2); }),mCollideCallbacks.end()); }
-	else if(name=="SetGameEntityActive" || name=="SetMeshActive") SetActive(s(0),b(1));
-	else if(name=="GetGameEntityActive") call->SetReturnByte(mEntities.count(s(0)) && mEntities[s(0)].active);
-	else if(name=="SetGameEntityDescription") mEntities[s(0)].description=s(1);
-	else if(name=="SetGameEntityDescriptionTrans" || name=="SetGameEntityDescriptionOnceTrans") { mEntities[s(0)].description=Translate(s(1),s(2)); mEntities[s(0)].descriptionOnce=name=="SetGameEntityDescriptionOnceTrans"; }
-	else if(name=="ChangeMap") ChangeMap({s(0),s(1),s(2),s(3),s(6),s(7),f(4),f(5)});
-	else if(name=="SetupLink" || name=="SetupLinkLoadText") mLinks[s(0)]={s(1),s(2),s(3),s(4),name=="SetupLinkLoadText" ? s(7) : "",name=="SetupLinkLoadText" ? s(8) : "",f(5),f(6)};
-	else if(kPartial.count(name))
-	{
-		std::vector<std::string> values;
-		for(asUINT i=1;i<asUINT(call->GetArgCount());++i)
-		{
-			const int type=call->GetArgTypeId(i);
-			if(type==mpScriptEngine->GetTypeIdByDecl("string")) values.push_back(s(i));
-			else if(type==asTYPEID_FLOAT) values.push_back(std::to_string(f(i)));
-			else if(type==asTYPEID_BOOL) values.push_back(b(i) ? "true" : "false"); else values.push_back(std::to_string(n(i)));
-		}
-		mAreaSettings[name+"/"+s(0)]=values;
-		if(mWarned.insert(name).second) Warning("Penumbra script '%s': setup retained; area behavior pending\n",name.c_str());
-	}
-	else if(name=="SetAmbientColor")
-	{
-		if(mpWorld)
-		{
-			auto* ambient=static_cast<cLightBoxLegacy*>(mpWorld->GetLight("PenumbraScriptAmbient"));
-			if(!ambient) { ambient=mpWorld->CreateLightBoxLegacy("PenumbraScriptAmbient"); ambient->SetSize(cVector3f(2000)); ambient->SetBlendFunc(eLightBoxBlendFunc_Add); }
-			ambient->SetDiffuseColor(cColor(f(0),f(1),f(2),1));
-		}
-	}
-	else if(name=="SetFogActive") { if(mpWorld) mpWorld->SetFogActive(b(0)); }
-	else if(name=="SetFogCulling") { if(mpWorld) mpWorld->SetFogCulling(b(0)); }
-	else if(name=="SetFogProperties") { if(mpWorld) { mpWorld->SetFogStart(f(0)); mpWorld->SetFogEnd(f(1)); mpWorld->SetFogColor(cColor(f(2),f(3),f(4),1)); } }
-	else if(name=="SetSkyboxActive") { if(mpWorld) mpWorld->SetSkyBoxActive(b(0)); }
-	else if(name=="SetSkyboxColor") { if(mpWorld) mpWorld->SetSkyBoxColor(cColor(f(0),f(1),f(2),f(3))); }
-	else if(name=="SetLight3DVisible") { if(auto* light=Light(s(0))) light->SetVisible(b(1)); }
-	else if(name=="SetLight3DFlickerActive") { if(auto* light=Light(s(0))) light->SetFlickerActive(b(1)); }
-	else if(name=="SetLight3DFlicker") { if(auto* light=Light(s(0))) { const cColor color(f(1),f(2),f(3),f(4)); light->SetFlicker(color,LegacyLightValue(light,f(5),color),f(6),f(7),s(8),s(9),f(10),f(11),s(12),s(13),b(14),f(15),f(15),f(16),f(16)); } }
-	else if(name=="FadeLight3D") { if(auto* light=Light(s(0))) { const cColor color(f(1),f(2),f(3),f(4)); light->FadeTo(color,LegacyLightValue(light,f(5),color),f(6)); } }
-	else if(name=="PlaySoundEntity" || name=="StopSoundEntity" || name=="FadeInSoundEntity" || name=="FadeOutSoundEntity")
-	{
-		if(mpWorld) if(auto* sound=mpWorld->GetSoundEntity(s(0))) { if(name=="PlaySoundEntity") sound->Play(b(1)); else if(name=="StopSoundEntity") sound->Stop(b(1)); else if(name=="FadeInSoundEntity") sound->FadeIn(f(1)); else sound->FadeOut(f(1)); }
-	}
-	else if(name=="PlayMusic" || name=="PlayGameMusic") { if(mpEngine) mpEngine->GetSound()->GetMusicHandler()->Play(s(0),f(1),f(2),b(3),false); }
-	else if(name=="StopMusic" || name=="StopGameMusic") { if(mpEngine) mpEngine->GetSound()->GetMusicHandler()->Stop(f(0)); }
-	else if(name=="PlayGuiSound") { if(mpEngine) mpEngine->GetSound()->GetSoundHandler()->PlayGui(SoundVariant(s(0)),false,f(1)); }
-	else if(name=="SetParticleSystemActive" || name=="KillParticleSystem") { if(mpWorld) if(auto* ps=mpWorld->GetParticleSystem(s(0))) { if(name=="KillParticleSystem") ps->Kill(); else ps->SetActive(b(1)); } }
-	else
-	{
-		if(mWarned.insert(name).second) Warning("Penumbra script stub: %s\n",name.c_str());
-		const std::string result=call->GetFunction()->GetReturnTypeId()==mpScriptEngine->GetTypeIdByDecl("string") ? "string" : "";
-		const auto type=call->GetFunction()->GetReturnTypeId();
-		if(result=="string") text(""); else if(type==asTYPEID_FLOAT) call->SetReturnFloat(0); else if(type==asTYPEID_BOOL) call->SetReturnByte(0); else if(type!=asTYPEID_VOID) call->SetReturnDWord(0);
-	}
+}
+
+void cMapScripts::Generic(asIScriptGeneric* call)
+{
+	auto* self=static_cast<cMapScripts*>(call->GetEngine()->GetUserData());
+	cScriptCall args(call);
+	const auto handler=self->mHandlerById.find(call->GetFunction()->GetId());
+	if(handler!=self->mHandlerById.end() && handler->second) { (*handler->second)(args); return; }
+	if(self->mWarned.insert(args.Name()).second) Warning("Penumbra script stub: %s\n",args.Name().c_str());
+	const int type=call->GetFunction()->GetReturnTypeId();
+	if(type==self->mpScriptEngine->GetTypeIdByDecl("string")) args.Return(std::string());
+	else if(type==asTYPEID_FLOAT) args.Return(0.0f);
+	else if(type==asTYPEID_BOOL) args.Return(false);
+	else if(type!=asTYPEID_VOID) args.Return(0);
 }
 }

@@ -30,8 +30,6 @@
 #include <tinyxml2.h>
 #include "resources/MeshLoader.h"
 #include "resources/WorldLoaderHandler.h"
-#include "resources/WorldLoaderPenumbraCollada.h"
-#include "resources/EntityLoader_PenumbraObject.h"
 #include "scene/Camera.h"
 #include "scene/World.h"
 #include "scene/Viewport.h"
@@ -39,7 +37,7 @@
 #include "graphics/PostEffectComposite.h"
 #include "graphics/PostEffect_ToneMap.h"
 
-#include "GameInstall.h"
+#include "InstallResources.h"
 #include "CrashLog.h"
 #include "FreeCamera.h"
 #include "MapScripts.h"
@@ -62,43 +60,19 @@
 #include <cmath>
 
 using namespace hpl;
+using namespace penumbra;
 namespace fs = std::filesystem;
 
 //-----------------------------------------------------------------------
 
 namespace {
 
-	// Same personal root as Amnesia (LuxBasePersonal.h), own folder below it.
-#if defined(_WIN32)
-	const tWString kPersonalRoot = _W("");
-#elif defined(__linux__)
-	const tWString kPersonalRoot = _W(".frictionalgames/");
-#else
-	const tWString kPersonalRoot = _W("Library/Application Support/Frictional Games/");
-#endif
-
 	// This product's files, relative to the executable (staged from
 	// penumbra/resources by premake/penumbra.lua).
 	const tWString kMainInitConfig = _W("config/main_init.cfg");
 	const tString kProductResourcesConfig = "resources.cfg";
 
-	// Higher priority shadows lower for files of the same name
-	// (cFileSearcher::GetFilePath). The engine registers its own directories
-	// (core/*, compiled_shaders/*) at the default priority 0 while it starts.
-	const int kInstallPriority = 20;
-
 	//-----------------------------------------------------------------------
-
-	class cAreaLoader : public iAreaLoader
-	{
-	public:
-		cAreaLoader(const tString& type) : iAreaLoader(type) {}
-		void Load(const tString& name, int, bool, const cVector3f& size, const cMatrixf& transform, cWorld* world) override
-		{
-			auto* area = world->CreateAreaEntity(name);
-			area->msType = GetName(); area->mvSize = size; area->m_mtxTransform = transform;
-		}
-	};
 
 	class cOptions
 	{
@@ -119,10 +93,11 @@ namespace {
 	};
 
 	const char* kUsage =
-		"Usage: Penumbra --game <install> [--map <file> --start <name>]\n"
+		"Usage: Penumbra [--game <install>] [--map <file> --start <name>]\n"
 		"\n"
 		"  --game <install>  Penumbra install: the directory with resources.cfg, or\n"
 		"                    the one above it when the data is in redist/\n"
+		"                    (default: Penumbra Overture in a Steam library)\n"
 		"  --map <file>      Map to view, e.g. level00_01_boat_cabin.dae\n"
 		"  --start <name>    Start position in that map, e.g. link01\n"
 		"  --renderer <name> standard or raytraced (overrides settings)\n"
@@ -191,11 +166,6 @@ namespace {
 		{ asError = "--frames requires --map and --start"; return false; }
 		if(!aOptions.msTravel.empty() && (aOptions.mlFrames <= 0 || aOptions.mbScriptCheck))
 		{ asError = "--travel requires --frames and a viewer run"; return false; }
-		if(aOptions.msGame.empty())
-		{
-			asError = "--game <install> is required";
-			return false;
-		}
 		if(aOptions.msMap.empty() != aOptions.msStart.empty())
 		{
 			asError = "--map and --start go together";
@@ -205,30 +175,6 @@ namespace {
 	}
 
 	//-----------------------------------------------------------------------
-
-	tString ToUtf8(const fs::path& aPath)
-	{
-		const std::u8string sPath = aPath.generic_u8string();
-		return tString(sPath.begin(), sPath.end());
-	}
-
-	fs::path FromUtf8(const tString& asPath)
-	{
-		return fs::path(std::u8string(asPath.begin(), asPath.end()));
-	}
-
-	void CreateFolders(const tWString& asRoot, const tWString& asRelative)
-	{
-		tWString sPath = asRoot;
-		tWStringVec vParts;
-		tWString sSepp = _W("/");
-		cString::GetStringVecW(asRelative, vParts, &sSepp);
-		for(const tWString& sPart : vParts)
-		{
-			sPath = cString::AddSlashAtEndW(sPath) + sPart;
-			if(cPlatform::FolderExists(sPath) == false) cPlatform::CreateFolder(sPath);
-		}
-	}
 
 	// Every directory the file searcher indexed files from, highest priority
 	// first: the order in which a name is looked up.
@@ -269,9 +215,16 @@ namespace {
 		}
 
 		/////////////////////////
-		// Find the install (relative to where we were started from)
+		// Find the install (relative to where we were started from), or
+		// Overture in a Steam library when none is given.
 		std::error_code ec;
-		fs::path install = fs::absolute(FromUtf8(options.msGame), ec).lexically_normal();
+		fs::path install = options.msGame.empty() ? penumbra::FindSteamInstall("Penumbra Overture") :
+			fs::absolute(FromUtf8(options.msGame), ec).lexically_normal();
+		if(install.empty())
+		{
+			fprintf(stderr, "Penumbra: Penumbra Overture was not found in a Steam library; give its install with --game.\n\n%s", kUsage);
+			return 1;
+		}
 		if(install.has_filename() == false) install = install.parent_path(); // trailing slash
 		const fs::path dataRoot = penumbra::FindDataRoot(install);
 		if(dataRoot.empty())
@@ -310,11 +263,7 @@ namespace {
 
 		/////////////////////////
 		// User directory: log, settings and caches; never the install.
-		const tWString sPersonalDir = cString::AddSlashAtEndW(cString::ReplaceCharToW(
-			cPlatform::GetSystemSpecialPath(eSystemPath_Personal), _W("\\"), _W("/")));
-		const tWString sUserFolder = kPersonalRoot + mainInit.GetStringW("Directories", "UserFolder", _W("Penumbra Redux"));
-		const tWString sUserDir = cString::AddSlashAtEndW(sPersonalDir + sUserFolder);
-		CreateFolders(sPersonalDir, sUserFolder);
+		const tWString sUserDir = UserDir(mainInit.GetStringW("Directories", "UserFolder", _W("Penumbra Redux")));
 
 		SetLogFile(sUserDir + mainInit.GetStringW("Directories", "LogFile", _W("penumbra.log")));
 		penumbra::InstallCrashLog();
@@ -415,11 +364,7 @@ namespace {
 		}
 		if(bBackground) pEngine->GetInput()->GetLowLevel()->LockInput(false);
 		cResources* pResources = pEngine->GetResources();
-		pResources->GetWorldLoaderHandler()->AddLoader(hplNew(cWorldLoaderPenumbraCollada, ()));
-		for(const char* type : {"Object", "Item", "SwingDoor", "Lamp", "Enemy"})
-			pResources->AddEntityLoader(hplNew(cEntityLoader_PenumbraObject, (type)));
-		for(const char* type : {"script", "link", "save", "ladder", "damage", "force", "liquid", "stick"})
-			pResources->AddAreaLoader(hplNew(cAreaLoader, (type)));
+		AddPenumbraLoaders(pResources);
 
 		/////////////////////////
 		// Resource directories, highest priority first. The engine has already
@@ -427,35 +372,12 @@ namespace {
 		// compiled_shaders/*, relative to the executable) at priority 0.
 		Log("Registering resource directories\n");
 		Log("--------------------------------------------------------\n");
-		Log(" Install (%s/resources.cfg, priority %d):\n", ToUtf8(dataRoot).c_str(), kInstallPriority);
-		for(const penumbra::cInstallResourceDir& dir : vInstallDirs)
-		{
-			if(dir.mbExists == false)
-			{
-				Warning("  '%s' listed in resources.cfg does not exist: %s\n",
-						dir.msConfigPath.c_str(), ToUtf8(dir.mPath).c_str());
-				continue;
-			}
-			Log("  %s\n", ToUtf8(dir.mPath).c_str());
-			pResources->AddResourceDir(cString::To16Char(ToUtf8(dir.mPath)), false, "*.*", kInstallPriority);
-		}
+		AddInstallDirs(pResources, dataRoot, vInstallDirs, mainInit.GetString("Language", "File", "English.lang"));
 
-		// HPL1 language files also index localized textures, fonts and voices.
-		const tString sLanguage = mainInit.GetString("Language", "File", "English.lang");
-		const tWString sLanguagePath = pResources->GetFileSearcher()->GetFilePath(sLanguage);
-		tinyxml2::XMLDocument language;
-		if(!sLanguagePath.empty() && LoadXmlFile(language, sLanguagePath) && language.RootElement())
-		{
-			const auto* dirs = language.RootElement()->FirstChildElement("RESOURCES");
-			for(const auto* dir = dirs ? dirs->FirstChildElement("Directory") : nullptr;
-				dir; dir = dir->NextSiblingElement("Directory"))
-			{
-				const char* path = dir->Attribute("Path");
-				if(!path) continue;
-				const fs::path resolved = penumbra::ResolvePathNoCase(dataRoot, path);
-				pResources->AddResourceDir(cString::To16Char(ToUtf8(resolved)), false, "*.*", kInstallPriority);
-			}
-		}
+		// The project's own maps, from the level editor.
+		CreateFolders(sUserDir, kUserMapsFolder);
+		Log(" User maps (priority %d):\n  %s%s\n", kUserMapsPriority, cString::To8Char(sUserDir).c_str(), cString::To8Char(kUserMapsFolder).c_str());
+		pResources->AddResourceDir(sUserDir + kUserMapsFolder, false, "*.*", kUserMapsPriority);
 
 		// This product's own files, each directory with the priority set in
 		// its resources.cfg (below the install's).
@@ -540,7 +462,7 @@ namespace {
 					pViewport->SetPostEffectComposite(pEffects);
 					Log("Penumbra camera: %s, yaw %.3f, pitch %.3f\n", pCamera->GetPosition().ToString().c_str(), pCamera->GetYaw(), pCamera->GetPitch());
 					{
-						penumbra::cMapScripts scripts(dataRoot,pEngine,sLanguage);
+						penumbra::cMapScripts scripts(dataRoot,pEngine,mainInit.GetString("Language", "File", "English.lang"));
 						if(!scripts.Load(options.msMap,pWorld,pCamera)) lResult=1;
 						else
 						{

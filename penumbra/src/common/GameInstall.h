@@ -59,6 +59,10 @@ namespace penumbra {
 	// are not found are kept as written.
 	std::filesystem::path ResolvePathNoCase(const std::filesystem::path& aBase, const std::string& asRelative);
 
+	// The install of asGameFolder ("Penumbra Overture") in any Steam library,
+	// or an empty path. Used when no install is given.
+	std::filesystem::path FindSteamInstall(const std::string& asGameFolder);
+
 	//-----------------------------------------
 
 }

@@ -21,7 +21,14 @@
 
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
+#include <fstream>
 #include <system_error>
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -144,6 +151,57 @@ namespace penumbra {
 			avDirs.push_back(dir);
 		}
 		return true;
+	}
+
+	//-----------------------------------------------------------------------
+
+	// Where Steam itself is installed; empty if it isn't.
+	static fs::path SteamDir()
+	{
+#ifdef _WIN32
+		wchar_t sPath[1024];
+		DWORD lSize = sizeof(sPath);
+		if(RegGetValueW(HKEY_CURRENT_USER, L"Software\\Valve\\Steam", L"SteamPath", RRF_RT_REG_SZ, nullptr, sPath, &lSize) == ERROR_SUCCESS)
+			return fs::path(sPath);
+		return fs::path();
+#else
+		const char* pHome = std::getenv("HOME");
+		if(pHome == nullptr) return fs::path();
+		for(const char* pRelative : {".local/share/Steam", ".steam/steam"})
+			if(IsDirectory(fs::path(pHome) / pRelative)) return fs::path(pHome) / pRelative;
+		return fs::path();
+#endif
+	}
+
+	fs::path FindSteamInstall(const std::string& asGameFolder)
+	{
+		const fs::path steam = SteamDir();
+		if(steam.empty()) return fs::path();
+
+		// Steam's own library, then those libraryfolders.vdf lists ("path" "<dir>").
+		std::vector<fs::path> vLibraries = { steam };
+		std::ifstream folders(ResolvePathNoCase(steam, "steamapps/libraryfolders.vdf"));
+		for(std::string sLine; std::getline(folders, sLine);)
+		{
+			const size_t lKey = sLine.find("\"path\"");
+			if(lKey == std::string::npos) continue;
+			const size_t lOpen = sLine.find('"', lKey + 6), lClose = sLine.rfind('"');
+			if(lOpen == std::string::npos || lClose <= lOpen) continue;
+			std::string sPath;
+			for(size_t i = lOpen + 1; i < lClose; ++i)
+			{
+				if(sLine[i] == '\\' && i + 1 < lClose) ++i; // "C:\\Games" in the file
+				sPath += sLine[i];
+			}
+			vLibraries.push_back(fs::path(std::u8string(sPath.begin(), sPath.end())));
+		}
+
+		for(const fs::path& library : vLibraries)
+		{
+			const fs::path install = ResolvePathNoCase(library, "steamapps/common/" + asGameFolder);
+			if(FindDataRoot(install).empty() == false) return install;
+		}
+		return fs::path();
 	}
 
 	//-----------------------------------------------------------------------

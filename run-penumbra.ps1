@@ -10,7 +10,7 @@ Launch the locally built Penumbra level viewer.
 #>
 [CmdletBinding()]
 param(
-    [string]$GameDir = 'C:\Steam\steamapps\common\Penumbra Overture',
+    [string]$GameDir,
     [string]$Map = 'level00_01_boat_cabin.dae',
     [string]$Start = 'link1',
     [ValidateSet('standard', 'raytraced')]
@@ -34,7 +34,8 @@ if ($Help) {
 Usage: .\run-penumbra.ps1 [options]
 
 Defaults: Release build, Overture boat cabin, walking, standard renderer.
-  -GameDir <path>       Your Penumbra install (or its redist directory)
+  -GameDir <path>       Your Penumbra install (or its redist directory);
+                        default: Overture in any Steam library
   -Map <file>           Map filename (default: level00_01_boat_cabin.dae)
   -Start <name>         Entrance (default: link1; must exist in the map)
   -Renderer <name>      standard or raytraced
@@ -58,6 +59,24 @@ if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
     throw "Penumbra executable not found: $executable. Build the penumbra product first (see BUILD.md)."
 }
 
+if (-not $GameDir) {
+    # Look for Overture in every Steam library (libraryfolders.vdf lists them).
+    $steam = (Get-ItemProperty -Path 'HKCU:\Software\Valve\Steam' -Name SteamPath -ErrorAction SilentlyContinue).SteamPath
+    $libraries = @()
+    if ($steam) {
+        $libraries += $steam
+        $folders = Join-Path $steam 'steamapps\libraryfolders.vdf'
+        if (Test-Path -LiteralPath $folders) {
+            $libraries += Select-String -LiteralPath $folders -Pattern '"path"\s+"([^"]+)"' |
+                ForEach-Object { $_.Matches[0].Groups[1].Value -replace '\\\\', '\' }
+        }
+    }
+    $GameDir = $libraries | ForEach-Object { Join-Path $_ 'steamapps\common\Penumbra Overture' } |
+        Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if (-not $GameDir) {
+        throw 'Penumbra Overture was not found in a Steam library. Pass -GameDir <your install>.'
+    }
+}
 $installPath = (Resolve-Path -LiteralPath $GameDir).Path
 $resourceConfig = Join-Path $installPath 'resources.cfg'
 $redistConfig = Join-Path $installPath 'redist\resources.cfg'

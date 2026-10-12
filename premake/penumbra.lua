@@ -21,11 +21,14 @@ project(PRODUCT.project)
         kind "ConsoleApp"
     filter {}
 
-    files { PENUMBRA .. "/src/game/*.cpp", PENUMBRA .. "/src/game/*.h" }
+    -- src/common is shared with this product's level editor (premake/tools.lua).
+    files { PENUMBRA .. "/src/game/*.cpp", PENUMBRA .. "/src/game/*.h",
+            PENUMBRA .. "/src/common/*.cpp", PENUMBRA .. "/src/common/*.h" }
 
     includedirs {
         ROOT .. "/HPL2/core/include",
         PENUMBRA .. "/src/game",
+        PENUMBRA .. "/src/common",
         ROOT .. "/amnesia/slang",
         ROOT .. "/amnesia/glsl",
         ANGELSCRIPT_AMFP_INCLUDE,

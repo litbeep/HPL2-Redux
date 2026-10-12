@@ -4,13 +4,35 @@
 #include "math/MathTypes.h"
 #include <angelscript.h>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace hpl { class cEngine; class cWorld; class cCamera; class cMeshEntity; class iLight; class iPhysicsBody; }
 namespace penumbra {
+
+// One call from a script into the host: its arguments and return value.
+class cScriptCall
+{
+public:
+	explicit cScriptCall(asIScriptGeneric* call) : mpCall(call), msName(call->GetFunction()->GetName()) {}
+	const std::string& Name() const { return msName; }
+	const std::string& s(unsigned i) const { return *static_cast<std::string*>(mpCall->GetArgObject(i)); }
+	float f(unsigned i) const { return mpCall->GetArgFloat(i); }
+	int n(unsigned i) const { return int(mpCall->GetArgDWord(i)); }
+	bool b(unsigned i) const { return mpCall->GetArgByte(i)!=0; }
+	void Return(const std::string& value);
+	void Return(float value) { mpCall->SetReturnFloat(value); }
+	void Return(int value) { mpCall->SetReturnDWord(asDWORD(value)); }
+	void Return(bool value) { mpCall->SetReturnByte(value); }
+	asIScriptGeneric* mpCall;
+
+private:
+	std::string msName;
+};
 
 class cMapScripts
 {
@@ -45,15 +67,21 @@ public:
 	bool TransitionReady() const { return !msNextMap.empty() && mfTransitionTime <= 0; }
 	bool HasStart(const std::string& name) const { return mStarts.count(name)!=0; }
 	const std::set<std::string>& Inventory() const { return mInventory; }
-	static const char* Status(const std::string& name);
-	static bool WriteApiStatus(const std::filesystem::path& path);
+	// "done", "partial" or "stub", for --script-api-status.
+	const char* Status(const std::string& name) const;
+	bool WriteApiStatus(const std::filesystem::path& path) const;
 
 private:
 	struct cTimer { float time; std::string callback; bool global, paused = false; };
 	struct cEntity { std::string type, mesh, description; bool active = true, descriptionOnce = false; hpl::cMatrixf transform = hpl::cMatrixf::Identity; hpl::cVector3f size = 0; };
 	struct cLink { std::string map, start, startSound, stopSound, category, entry; float fadeOut = 0, fadeIn = 0; };
 	struct cCollide { std::string event, parent, child, function; bool touching = false; };
-	void Dispatch(asIScriptGeneric* call);
+	using tHandler = std::function<void(cScriptCall&)>;
+	// The script functions (ScriptFunctions.cpp). A function of the API
+	// without a handler is a stub: it warns once and returns a neutral value.
+	// A partial one approximates HPL1 or only keeps its setup for later.
+	void AddHandlers();
+	void Handle(std::initializer_list<const char*> names, tHandler handler, bool partial = false);
 	static void Generic(asIScriptGeneric* call);
 	static void CompileMessage(const asSMessageInfo* message, void* runtime);
 	static void Budget(asIScriptContext* context, void* runtime);
@@ -74,6 +102,9 @@ private:
 	hpl::cCamera* mpCamera = nullptr;
 	asIScriptEngine* mpScriptEngine = nullptr;
 	asIScriptModule* mpModule = nullptr;
+	std::map<std::string,tHandler> mHandlers;
+	std::unordered_map<int,const tHandler*> mHandlerById;
+	std::set<std::string> mPartial;
 	bool mbFailed = false, mbPlayerActive = true, mbWideScreen = false;
 	int mlBudget = 0, mlErrors = 0;
 	std::map<std::string,std::filesystem::path> mFiles;
