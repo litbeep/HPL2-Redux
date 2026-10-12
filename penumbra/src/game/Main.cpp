@@ -15,19 +15,35 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-// The Penumbra product's entry point (milestone 0 of docs/penumbra-levels.md):
-// find the player's install, start the engine with a window, register the
-// resource directories and log them, then shut down.
+// The Penumbra product's entry point (milestone 5 of docs/penumbra-levels.md):
+// find the player's install and view its geometry, entities, areas and environment,
+// with a free camera or a walking body. Without a map, check startup and exit.
 //
 //   Penumbra --game <install> [--map <file> --start <name>]
+//            [--renderer standard|raytraced] [--frames N] [--walk]
 
 #include "hpl.h"
 #include "gui/Gui.h"
 #include "resources/ConfigFile.h"
 #include "resources/FileSearcher.h"
+#include "resources/XmlHelper.h"
+#include <tinyxml2.h>
 #include "resources/MeshLoader.h"
+#include "resources/WorldLoaderHandler.h"
+#include "resources/WorldLoaderPenumbraCollada.h"
+#include "resources/EntityLoader_PenumbraObject.h"
+#include "scene/Camera.h"
+#include "scene/World.h"
+#include "scene/Viewport.h"
+#include "engine/Updater.h"
+#include "graphics/PostEffectComposite.h"
+#include "graphics/PostEffect_ToneMap.h"
 
 #include "GameInstall.h"
+#include "FreeCamera.h"
+#include "MapScripts.h"
+#include "physics/Physics.h"
+#include "physics/SurfaceData.h"
 
 #include <SDL.h>
 
@@ -41,6 +57,8 @@
 #include <system_error>
 #include <tuple>
 #include <vector>
+#include <charconv>
+#include <cmath>
 
 using namespace hpl;
 namespace fs = std::filesystem;
@@ -70,13 +88,32 @@ namespace {
 
 	//-----------------------------------------------------------------------
 
+	class cAreaLoader : public iAreaLoader
+	{
+	public:
+		cAreaLoader(const tString& type) : iAreaLoader(type) {}
+		void Load(const tString& name, int, bool, const cVector3f& size, const cMatrixf& transform, cWorld* world) override
+		{
+			auto* area = world->CreateAreaEntity(name);
+			area->msType = GetName(); area->mvSize = size; area->m_mtxTransform = transform;
+		}
+	};
+
 	class cOptions
 	{
 	public:
 		tString msGame;
 		tString msMap;
 		tString msStart;
+		tString msRenderer;
+		int mlFrames = 0;
 		bool mbHelp = false;
+		bool mbWalk = false;
+		bool mbDebugAreas = false;
+		bool mbScriptCheck = false;
+		int mlScriptSteps = 120;
+		std::vector<tString> mvScriptActions;
+		tString msScriptApiStatus;
 	};
 
 	const char* kUsage =
@@ -84,8 +121,18 @@ namespace {
 		"\n"
 		"  --game <install>  Penumbra install: the directory with resources.cfg, or\n"
 		"                    the one above it when the data is in redist/\n"
-		"  --map <file>      Map to load, e.g. level01_entrance.dae (milestone 1)\n"
+		"  --map <file>      Map to view, e.g. level00_01_boat_cabin.dae\n"
 		"  --start <name>    Start position in that map, e.g. link01\n"
+		"  --renderer <name> standard or raytraced (overrides settings)\n"
+		"  --frames <N>      Render N frames, then exit (smoke testing)\n"
+		"  --walk            Walk with collision and gravity; Space jumps\n"
+		"  --debug-areas     Show area bounds and labels (F3 toggles)\n"
+		"  --script-check    Run scripts without graphics, audio or windows\n"
+		"  --script-steps N  Fixed 60 Hz ticks for script checks\n"
+		"  --script-action <tick:action:name>  Scheduled test event\n"
+		"  --script-api-status <file>  Write the API status table\n"
+		"  Controls: WASD fly, Q/E down/up, Shift faster, mouse look, Esc quit\n"
+		"  Scripts: left mouse interact, right mouse examine, U use item, Space/Enter dismiss\n"
 		"  --help            Show this text\n";
 
 	bool ParseArgs(const std::vector<tString>& avArgs, cOptions& aOptions, tString& asError)
@@ -95,9 +142,29 @@ namespace {
 			const tString& sArg = avArgs[i];
 			tString* pValue = nullptr;
 			if(sArg == "--help" || sArg == "-h")	{ aOptions.mbHelp = true; continue; }
+			else if(sArg == "--walk") { aOptions.mbWalk = true; continue; }
+			else if(sArg == "--debug-areas") { aOptions.mbDebugAreas = true; continue; }
+			else if(sArg == "--script-check") { aOptions.mbScriptCheck = true; continue; }
+			else if(sArg == "--script-api-status") pValue = &aOptions.msScriptApiStatus;
+			else if(sArg == "--script-action")
+			{
+				if(i+1>=avArgs.size()) { asError="--script-action needs tick:action:name"; return false; }
+				aOptions.mvScriptActions.push_back(avArgs[++i]); continue;
+			}
 			else if(sArg == "--game")				pValue = &aOptions.msGame;
 			else if(sArg == "--map")				pValue = &aOptions.msMap;
 			else if(sArg == "--start")				pValue = &aOptions.msStart;
+			else if(sArg == "--renderer") pValue = &aOptions.msRenderer;
+			else if(sArg == "--frames" || sArg == "--script-steps")
+			{
+				if(i+1 >= avArgs.size()) { asError = "--frames needs a positive integer"; return false; }
+				const tString& sFrames = avArgs[++i];
+				int& count = sArg=="--frames" ? aOptions.mlFrames : aOptions.mlScriptSteps;
+				auto result = std::from_chars(sFrames.data(), sFrames.data()+sFrames.size(), count);
+				if(result.ec != std::errc() || result.ptr != sFrames.data()+sFrames.size() || count <= 0)
+				{ asError = "--frames needs a positive integer"; return false; }
+				continue;
+			}
 			else
 			{
 				asError = "unknown argument '" + sArg + "'";
@@ -113,6 +180,10 @@ namespace {
 		}
 
 		if(aOptions.mbHelp) return true;
+		if(!aOptions.msRenderer.empty() && aOptions.msRenderer != "standard" && aOptions.msRenderer != "raytraced")
+		{ asError = "--renderer must be standard or raytraced"; return false; }
+		if(aOptions.mlFrames > 0 && aOptions.msMap.empty())
+		{ asError = "--frames requires --map and --start"; return false; }
 		if(aOptions.msGame.empty())
 		{
 			asError = "--game <install> is required";
@@ -239,6 +310,49 @@ namespace {
 		CreateFolders(sPersonalDir, sUserFolder);
 
 		SetLogFile(sUserDir + mainInit.GetStringW("Directories", "LogFile", _W("penumbra.log")));
+		if(options.mbScriptCheck)
+		{
+			penumbra::cMapScripts scripts(dataRoot,nullptr,mainInit.GetString("Language","File","English.lang"));
+			if(!options.msScriptApiStatus.empty() && !scripts.WriteApiStatus(FromUtf8(options.msScriptApiStatus))) return 1;
+			if(!scripts.Load(options.msMap) || !scripts.HasStart(options.msStart)) { Error("Penumbra: script-check map/start invalid\n"); return 1; }
+			std::multimap<int,std::pair<tString,tString>> actions;
+			for(const auto& action : options.mvScriptActions)
+			{
+				const auto colon=action.find(':'); const auto next=action.find(':',colon==tString::npos ? 0 : colon+1);
+				int tick=0;
+				const auto parsed = std::from_chars(action.data(),action.data()+(colon==tString::npos ? 0 : colon),tick);
+				if(colon==tString::npos || parsed.ec!=std::errc() || parsed.ptr!=action.data()+colon || tick<0)
+				{ Error("Invalid script action '%s'\n",action.c_str()); return 1; }
+				actions.emplace(tick,std::make_pair(action.substr(colon+1,next==tString::npos ? tString::npos : next-colon-1),next==tString::npos ? "" : action.substr(next+1)));
+			}
+			for(int tick=0;tick<options.mlScriptSteps && !scripts.Failed();++tick)
+			{
+				const auto range=actions.equal_range(tick);
+				for(auto it=range.first;it!=range.second;++it)
+				{
+					const auto& kind=it->second.first; const auto& name=it->second.second;
+					if(kind=="dismiss") scripts.DismissMessage();
+					else if(kind=="pickup") scripts.Pickup(name);
+					else if(kind=="interact") scripts.Interact(name);
+					else if(kind=="examine") scripts.Examine(name);
+					else if(kind=="invoke") scripts.Invoke(name);
+					else { Error("Unknown script action '%s'\n",kind.c_str()); return 1; }
+				}
+				scripts.Update(1.0f/60);
+				if(scripts.TransitionReady())
+				{
+					const auto map=scripts.NextMap(); const auto start=scripts.NextStart();
+					scripts.Leave();
+					if(!scripts.Load(map) || !scripts.HasStart(start)) { Error("Penumbra: script transition map/start invalid\n"); return 1; }
+					Log("Penumbra script transition complete: %s, start '%s'\n",map.c_str(),start.c_str());
+				}
+			}
+			// Script errors don't stop the run, but they fail the check.
+			scripts.Leave();
+			const bool okay=!scripts.Failed() && scripts.Errors()==0;
+			Log("Penumbra script check: %s, map '%s', %d ticks, %zu inventory items\n",okay ? "PASS" : "FAIL",scripts.CurrentMap().c_str(),options.mlScriptSteps,scripts.Inventory().size());
+			return okay ? 0 : 1;
+		}
 
 		const tWString sCacheFolder = mainInit.GetStringW("Directories", "MeshCache", _W("cache/meshes"));
 		CreateFolders(sUserDir, sCacheFolder);
@@ -271,8 +385,17 @@ namespace {
 		vars.mGraphics.mbVsync = settings.GetBool("Screen", "Vsync", true);
 		vars.mGraphics.msWindowCaption = mainInit.GetString("Window", "Caption", "Penumbra");
 		vars.mGraphics.mRendererBackend =
-			cString::ToLowerCase(settings.GetString("Graphics", "Renderer", "RayTraced")) == "standard" ?
+			(options.msRenderer.empty() ? cString::ToLowerCase(settings.GetString("Graphics", "Renderer", "RayTraced")) : options.msRenderer) == "standard" ?
 				eRendererBackend_Standard : eRendererBackend_RayTraced;
+
+		// Bounded (test) runs stay in the background: windowed, shown without
+		// taking focus, and without grabbing the mouse.
+		const bool bBackground = options.mlFrames > 0;
+		if(bBackground)
+		{
+			vars.mGraphics.mbFullscreen = false;
+			SDL_SetHint(SDL_HINT_WINDOW_NO_ACTIVATION_WHEN_SHOWN, "1");
+		}
 
 		cEngine* pEngine = CreateHPLEngine(eHplAPI_OpenGL, eHplSetup_All, &vars);
 		if(pEngine == nullptr)
@@ -280,7 +403,13 @@ namespace {
 			Error("Couldn't start the engine\n");
 			return 1;
 		}
+		if(bBackground) pEngine->GetInput()->GetLowLevel()->LockInput(false);
 		cResources* pResources = pEngine->GetResources();
+		pResources->GetWorldLoaderHandler()->AddLoader(hplNew(cWorldLoaderPenumbraCollada, ()));
+		for(const char* type : {"Object", "Item", "SwingDoor", "Lamp", "Enemy"})
+			pResources->AddEntityLoader(hplNew(cEntityLoader_PenumbraObject, (type)));
+		for(const char* type : {"script", "link", "save", "ladder", "damage", "force", "liquid", "stick"})
+			pResources->AddAreaLoader(hplNew(cAreaLoader, (type)));
 
 		/////////////////////////
 		// Resource directories, highest priority first. The engine has already
@@ -301,11 +430,29 @@ namespace {
 			pResources->AddResourceDir(cString::To16Char(ToUtf8(dir.mPath)), false, "*.*", kInstallPriority);
 		}
 
+		// HPL1 language files also index localized textures, fonts and voices.
+		const tString sLanguage = mainInit.GetString("Language", "File", "English.lang");
+		const tWString sLanguagePath = pResources->GetFileSearcher()->GetFilePath(sLanguage);
+		tinyxml2::XMLDocument language;
+		if(!sLanguagePath.empty() && LoadXmlFile(language, sLanguagePath) && language.RootElement())
+		{
+			const auto* dirs = language.RootElement()->FirstChildElement("RESOURCES");
+			for(const auto* dir = dirs ? dirs->FirstChildElement("Directory") : nullptr;
+				dir; dir = dir->NextSiblingElement("Directory"))
+			{
+				const char* path = dir->Attribute("Path");
+				if(!path) continue;
+				const fs::path resolved = penumbra::ResolvePathNoCase(dataRoot, path);
+				pResources->AddResourceDir(cString::To16Char(ToUtf8(resolved)), false, "*.*", kInstallPriority);
+			}
+		}
+
 		// This product's own files, each directory with the priority set in
 		// its resources.cfg (below the install's).
 		Log(" Penumbra product (%s):\n", kProductResourcesConfig.c_str());
 		if(pResources->LoadResourceDirsFile(kProductResourcesConfig) == false)
 			Error("Couldn't load the product's %s\n", kProductResourcesConfig.c_str());
+		pResources->AddLanguageFile("config/penumbra_english.lang", false);
 		Log("--------------------------------------------------------\n\n");
 
 		LogIndexedDirs(pResources);
@@ -320,6 +467,31 @@ namespace {
 			Error("Couldn't load GUI skin '%s'\n", sSkin.c_str());
 
 		int lResult = 0;
+		const fs::path materials = dataRoot / "materials.cfg";
+		if(fs::exists(materials))
+			if(!pEngine->GetPhysics()->LoadSurfaceData(ToUtf8(materials)))
+				Error("Penumbra: could not load physics materials\n");
+		// The CC test install omits retail impact sounds/particles named by
+		// materials.cfg. Keep physical properties and report missing effects.
+		auto hasEffect = [pResources](const tString& name, const char* ext) {
+			if(name.empty() || !pResources->GetFileSearcher()->GetFilePath(cString::SetFileExt(name, ext)).empty()) return true;
+			Warning("Penumbra: missing optional surface effect '%s.%s'\n", name.c_str(), ext);
+			return false;
+		};
+		auto surfaces = pEngine->GetPhysics()->GetSurfaceDataIterator();
+		while(surfaces.HasNext())
+		{
+			auto* surface = surfaces.Next();
+			if(!hasEffect(surface->GetScrapeSoundName(), "snt")) surface->SetScrapeSoundName("");
+			if(!hasEffect(surface->GetRollSoundName(), "snt")) surface->SetRollSoundName("");
+			for(int kind=0; kind<2; ++kind)
+				for(int i=0; i<(kind ? surface->GetHitDataNum() : surface->GetImpactDataNum()); ++i)
+				{
+					auto* effect = kind ? surface->GetHitData(i) : surface->GetImpactData(i);
+					if(!hasEffect(effect->GetSoundName(), "snt")) effect->SetSoundName("");
+					if(!hasEffect(effect->GetPSName(), "ps")) effect->SetPSName("");
+				}
+		}
 		if(options.msMap.empty() == false)
 		{
 			const tWString sMapPath = pResources->GetFileSearcher()->GetFilePath(options.msMap);
@@ -330,9 +502,48 @@ namespace {
 			}
 			else
 			{
-				// Loading the map comes with milestone 1.
 				Log("Map '%s' (start '%s'): %s\n", options.msMap.c_str(), options.msStart.c_str(),
 					cString::To8Char(sMapPath).c_str());
+				cWorld* pWorld = pEngine->GetScene()->LoadWorld(options.msMap, 0);
+				cStartPosEntity* pStart = pWorld ? pWorld->GetStartPosEntity(options.msStart) : nullptr;
+				if(pStart == nullptr)
+				{
+					Error("Couldn't load map or start '%s'\n", options.msStart.c_str());
+					lResult = 1;
+				}
+				else
+				{
+					cCamera* pCamera = pEngine->GetScene()->CreateCamera(eCameraMoveMode_Fly);
+					pCamera->SetPosition(pStart->GetWorldMatrix().GetTranslation() + cVector3f(0, 1.7f, 0));
+					cVector3f forward = cMath::MatrixMul(pStart->GetWorldMatrix().GetRotation(), cVector3f(0, 0, -1));
+					pCamera->SetYaw(std::atan2(-forward.x, -forward.z));
+					pCamera->SetPitch(std::atan2(forward.y, std::sqrt(forward.x*forward.x + forward.z*forward.z)));
+					pCamera->SetFOV(cMath::ToRad(70.0f));
+					pCamera->SetNearClipPlane(0.05f);
+					pCamera->SetFarClipPlane(1000.0f);
+					cViewport* pViewport = pEngine->GetScene()->CreateViewport(pCamera, pWorld);
+					pViewport->SetIsListener(true);
+					pEngine->GetScene()->SetCurrentListener(pViewport);
+					cPostEffectComposite* pEffects = pEngine->GetGraphics()->CreatePostEffectComposite();
+					cPostEffectParams_ToneMap toneMap;
+					pEffects->AddPostEffect(pEngine->GetGraphics()->CreatePostEffect(&toneMap), 0);
+					pViewport->SetPostEffectComposite(pEffects);
+					Log("Penumbra camera: %s, yaw %.3f, pitch %.3f\n", pCamera->GetPosition().ToString().c_str(), pCamera->GetYaw(), pCamera->GetPitch());
+					{
+						penumbra::cMapScripts scripts(dataRoot,pEngine,sLanguage);
+						if(!scripts.Load(options.msMap,pWorld,pCamera)) lResult=1;
+						else
+						{
+							penumbra::cFreeCamera camera(pEngine, pCamera, pViewport, options.mlFrames, options.mbWalk, options.mbDebugAreas,&scripts);
+							pEngine->GetUpdater()->AddGlobalUpdate(&camera);
+							pEngine->SetWaitIfAppOutOfFocus(options.mlFrames == 0);
+							pEngine->Run();
+							if(camera.Failed()) lResult=1;
+						}
+						scripts.Leave();
+						if(scripts.Failed() || scripts.Errors()>0) lResult=1;
+					}
+				}
 			}
 		}
 

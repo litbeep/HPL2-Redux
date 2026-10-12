@@ -1,0 +1,22 @@
+<LANGUAGE>
+  <CATEGORY Name="ScriptUI">
+    <Entry Name="InteractKey">Left mouse</Entry>
+    <Entry Name="ExamineKey">Right mouse</Entry>
+    <Entry Name="UseKey">U</Entry>
+    <Entry Name="Aim">+</Entry>
+    <Entry Name="Dismiss">Space or Enter to continue</Entry>
+    <Entry Name="Interact">Left mouse: interact or pick up. Right mouse: examine. U: use a matching carried item.</Entry>
+  </CATEGORY>
+  <CATEGORY Name="AreaDebug">
+    <Entry Name="Hint">Area bounds - F3 toggles this view</Entry>
+    <Entry Name="generic">generic</Entry>
+    <Entry Name="script">script</Entry>
+    <Entry Name="link">link</Entry>
+    <Entry Name="save">save</Entry>
+    <Entry Name="ladder">ladder</Entry>
+    <Entry Name="damage">damage</Entry>
+    <Entry Name="force">force</Entry>
+    <Entry Name="liquid">liquid</Entry>
+    <Entry Name="stick">stick</Entry>
+  </CATEGORY>
+</LANGUAGE>
