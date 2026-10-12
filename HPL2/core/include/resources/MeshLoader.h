@@ -60,7 +60,8 @@ namespace hpl {
 		// has. A product that loads meshes from a read-only game install sets a
 		// directory of its own, so nothing is written into the install.
 		static void SetMeshCacheDir(const tWString& asDir);
-		static tWString GetMeshCachePath(const tWString& asFile);
+		// asExt: "msh" for meshes, "anm" for animations.
+		static tWString GetMeshCachePath(const tWString& asFile, const tWString& asExt = _W("msh"));
 
 	protected:
         cMaterialManager *mpMaterialManager;

@@ -132,6 +132,16 @@ def levels(game, only):
         yield path.name, starts[0] if starts else None
 
 
+def snapshot(game):
+    """Every file of the install with its size and modification time."""
+    files = {}
+    for path in game.rglob("*"):
+        if path.is_file():
+            stat = path.stat()
+            files[path.relative_to(game).as_posix()] = (stat.st_size, stat.st_mtime_ns)
+    return files
+
+
 def run(command, log, timeout):
     begin = time.monotonic()
     try:
@@ -173,6 +183,10 @@ def main():
 
     rows, by_problem, stubs, partial = [], defaultdict(set), defaultdict(set), defaultdict(set)
     by_known = defaultdict(lambda: [0, set()])
+    # Nothing may write into the install (caches go to the user directory).
+    # HPL1's own core/cache/*.collcach files change when Penumbra itself runs,
+    # but not during the sweep.
+    before = snapshot(game)
     for name, start in levels(game, args.only):
         if start is None:
             rows.append((name, "-", "no _start_ node", "", "", "", ""))
@@ -209,9 +223,16 @@ def main():
         rows.append((name, start, summary, view_state, f"{len(view)}", script_state, f"{len(script)}"))
         print(f"{name}: {view_state}, {len(view)} view problems; scripts {script_state}, {len(script)} problems", flush=True)
 
+    after = snapshot(game)
+    written = sorted(name for name in after.keys() | before.keys() if after.get(name) != before.get(name))
+    for name in written:
+        print(f"Install changed: {name}", flush=True)
+
     lines = ["# Penumbra level sweep", "",
              f"Install: `{game}`  ", f"Renderer: {args.renderer}, {args.frames} frames; scripts: {args.script_steps} ticks", "",
              "Local report: it names the install's files. Never commit it.", "",
+             (f"**The sweep changed {len(written)} files in the install:** " + ", ".join(f"`{n}`" for n in written[:20])
+              if written else "The install was not changed."), "",
              "| Map | Start | Loaded | View | View problems | Scripts | Script problems |",
              "|---|---|---|---|---|---|---|"]
     lines += ["| " + " | ".join(row) + " |" for row in rows]
@@ -240,7 +261,7 @@ def main():
     report.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"Report: {report}")
     failed = [row for row in rows if not row[3].startswith("exit 0") or not row[5].startswith("exit 0")]
-    return 1 if failed or broken or unreached else 0
+    return 1 if failed or broken or unreached or written else 0
 
 
 if __name__ == "__main__":

@@ -65,9 +65,9 @@ namespace hpl {
 		msMeshCacheDir = asDir.empty() ? asDir : cString::AddSlashAtEndW(asDir);
 	}
 
-	tWString iMeshLoader::GetMeshCachePath(const tWString& asFile)
+	tWString iMeshLoader::GetMeshCachePath(const tWString& asFile, const tWString& asExt)
 	{
-		if(msMeshCacheDir.empty()) return cString::SetFileExtW(asFile, _W("msh"));
+		if(msMeshCacheDir.empty()) return cString::SetFileExtW(asFile, asExt);
 
 		// One flat directory: the source's name plus a hash of its full path, so
 		// meshes with the same name in different directories get their own cache.
@@ -81,7 +81,7 @@ namespace hpl {
 		snprintf(sHash, sizeof(sHash), "%016llx", (unsigned long long)lHash);
 
 		return msMeshCacheDir + cString::GetFileNameW(cString::SetFileExtW(asFile, _W(""))) +
-			   _W("_") + cString::To16Char(sHash) + _W(".msh");
+			   _W("_") + cString::To16Char(sHash) + _W(".") + asExt;
 	}
 
 	//-----------------------------------------------------------------------

@@ -819,7 +819,7 @@ namespace hpl {
 		// TRY USING MSH LOADER
 		if(mbLoadAndSaveMSHFormat)
 		{
-			tWString sMSHFile = cString::SetFileExtW(asFile, _W("anm"));
+			tWString sMSHFile = GetMeshCachePath(asFile, _W("anm")); // PENUMBRA: was next to asFile
 			cDate currentDate = cPlatform::FileModifiedDate(asFile);
 			cDate mshDate = cPlatform::FileModifiedDate(sMSHFile);
 
@@ -987,7 +987,7 @@ namespace hpl {
 		// SAVE MSH FORMAT
 		if(cResources::GetForceCacheLoadingAndSkipSaving()==false && mbLoadAndSaveMSHFormat)
 		{
-			tWString sMSHFile = cString::SetFileExtW(asFile, _W("anm"));
+			tWString sMSHFile = GetMeshCachePath(asFile, _W("anm")); // PENUMBRA: was next to asFile
 
 			mpMeshLoaderMSH->SaveAnimation(pAnimation, sMSHFile);
 		}

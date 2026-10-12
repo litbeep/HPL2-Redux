@@ -151,7 +151,7 @@ in a temporary directory; it needs no retail assets. Pass the actual user
 log path (the viewer logs it during startup):
 
 ```powershell
-python tests/penumbra_map_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "D:\Documents\Penumbra Redux\penumbra.log"
+python tests/penumbra_map_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "<Documents>\Penumbra Redux\penumbra.log"
 ```
 
 It runs Y-up and Z-up maps through standard and ray-traced renderers,
@@ -170,7 +170,7 @@ Entity checks use generated models to load `Object`, `Item`, `Lamp`,
 HPL1 geometry-name material overrides and unchanged install file hashes:
 
 ```powershell
-python tests/penumbra_entity_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "D:\Documents\Penumbra Redux\penumbra.log"
+python tests/penumbra_entity_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "<Documents>\Penumbra Redux\penumbra.log"
 ```
 
 Optionally add `--test-install <Antumbra test-install directory>` to check
@@ -183,7 +183,7 @@ area, and check names, scaled bounds, parent transforms, debug-enabled
 rendering and unchanged source-file hashes on both renderers:
 
 ```powershell
-python tests/penumbra_area_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "D:\Documents\Penumbra Redux\penumbra.log"
+python tests/penumbra_area_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "<Documents>\Penumbra Redux\penumbra.log"
 ```
 
 These integration scripts open game windows. Bounded `--frames` runs open
@@ -200,7 +200,7 @@ runaway scripts, and links to a missing entrance (the first one is used, as
 in HPL1):
 
 ```powershell
-python tests/penumbra_script_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "D:\Documents\Penumbra Redux\penumbra.log"
+python tests/penumbra_script_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "<Documents>\Penumbra Redux\penumbra.log"
 ```
 
 Optionally pass `--game <Overture install>` to exercise the unchanged boat
@@ -229,8 +229,9 @@ existing map; every level is reachable from the first):
 python scripts/penumbra_level_sweep.py --exe build-premake/penumbra/Release/Penumbra.exe --log "<Documents>\Penumbra Redux\penumbra.log" --game "<Penumbra Overture install>"
 ```
 
-It exits with 1 if a level fails to load or render, a script check fails, or
-a link is broken, and writes `level-sweep.md` next to the log: problems by
+It exits with 1 if a level fails to load or render, a script check fails, a
+link is broken, or any file in the install was created or changed during the
+sweep (caches belong in the user directory), and writes `level-sweep.md` next to the log: problems by
 frequency, known and harmless messages with their reasons, and the script
 functions still stubs. The report names the install's files; never commit
 it. `--only <name>...` limits the sweep; `--renderer raytraced` uses the
