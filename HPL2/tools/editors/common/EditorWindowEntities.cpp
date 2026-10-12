@@ -44,7 +44,8 @@ cMeshEntity* cEditorObjectIndexEntryEntity::CreateTempEntity(cWorld* apWorld)
 	tString sSourceFile = cString::To8Char(GetFileNameFullPath());
 
 	cMeshEntity* pEnt = pEditor->GetEngineEntityLoader()->LoadEntFile(-1, "TempObject_"+sSourceFile, sSourceFile, apWorld, false, false, false, false, false);
-	
+	if(pEnt==NULL) return NULL; // PENUMBRA: the callers skip a file that fails to load
+
 	pEnt->SetSourceFile(sSourceFile);
 	pEnt->SetActive(false);
 	pEnt->SetVisible(false);

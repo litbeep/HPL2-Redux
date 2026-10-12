@@ -50,6 +50,9 @@
 #include "resources/XmlHelper.h"
 
 #include "../common/DirectoryHandler.h"
+#ifdef PENUMBRA
+#include "EditorInstall.h" // PENUMBRA: penumbra/src/editor
+#endif
 
 #include "../common/StdAfx.h"
 
@@ -136,6 +139,11 @@ cMeshEntity* cEditorEntityLoader::LoadEntityFromElement(int alID, const tString&
 														cWorld* apWorld, const tString& asFilename, const tWString& asFullPath, 
 														bool abLoadAnims, bool abLoadParticles, bool abLoadBillboards, bool abLoadSounds, bool abLoadLights)
 {
+#ifdef PENUMBRA
+	// PENUMBRA: Penumbra's HPL1 entities show their model (penumbra/src/editor).
+	if(penumbra::IsHpl1Entity(apElement))
+		return penumbra::EditorLoadHpl1Entity(asName, apElement, apWorld, mpEditor->GetEngine()->GetResources());
+#endif
 	mbLoadAnimations = abLoadAnims;
 	mbLoadParticleSystems = abLoadParticles;
 	mbLoadBillboards = abLoadBillboards;
@@ -785,6 +793,10 @@ void iEditorBase::Init(cEngine* apEngine, const char* asName, const char* asBuil
 		if(customResources != "") mpEngine->GetResources()->LoadResourceDirsFile(customResources);
 		else mpEngine->GetResources()->LoadResourceDirsFile("resources.cfg");
 #endif
+#ifdef PENUMBRA
+		// PENUMBRA: the player's Penumbra install, read-only (penumbra/src/editor).
+		penumbra::EditorUseInstall(mpEngine->GetResources(), mpMainConfig->GetStringW("Directories", "PenumbraInstall", _W("")));
+#endif
 	}
 
 	Log("-----------------------------------------------------\n%s Build ID: %s\n-----------------------------------------------------\n", 
@@ -805,7 +817,8 @@ void iEditorBase::Init(cEngine* apEngine, const char* asName, const char* asBuil
 
 	/////////////////////////
 	//Create and set up GUI
-	mpSkin = mpEngine->GetGui()->CreateSkin("gui_default.skin");
+	// PENUMBRA: [Gui] Skin lets a product without Amnesia's gui_default.skin use its own.
+	mpSkin = mpEngine->GetGui()->CreateSkin(mpMainConfig->GetString("Gui", "Skin", "gui_default.skin"));
 	mpSet = mpEngine->GetGui()->CreateSet("MainSet",mpSkin);
 
 	mpSet->SetDrawMouse(true);
@@ -1204,7 +1217,12 @@ void iEditorBase::SetUpDirectories()
 
 	///////////////////////////////////////////////////
 	// Redist (global lookup dirs)
+#ifdef PENUMBRA
+	// PENUMBRA: relative to the Penumbra install, not to the editor.
+	const tWString& sWorkingDir = penumbra::EditorContentDir();
+#else
 	const tWString& sWorkingDir = GetWorkingDir();
+#endif
 
 	mpDirHandler->AddLookUpDir(eDir_Lights, sWorkingDir + mpMainConfig->GetStringW("Directories", "LightsDir", _W("lights")), true);
 	mpDirHandler->AddLookUpDir(eDir_Billboards, sWorkingDir + mpMainConfig->GetStringW("Directories", "BillboardsDir", _W("billboards")), true);

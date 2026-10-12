@@ -72,6 +72,7 @@ using namespace hpl;
 #include "../common/EditorWindowObjectBrowser.h"   // iEditorObjectIndexEntryMeshObject (GetBVMin/Max, GetTriangleCount)
 #include "../common/EditorWindowStaticObjects.h"   // cEditorObjectIndexStaticObjects (*.dae)
 #include "../common/EditorWindowEntities.h"        // cEditorObjectIndexEntities (*.ent)
+#include "../common/EditorThumbnailBuilder.h"     // PENUMBRA: SetPaused
 
 #include <tinyxml2.h>
 
@@ -2463,7 +2464,10 @@ static const cMCPToolDef gvTools[] =
 		for(size_t i=0;i<vDirs.size();++i)
 		{
 			cEditorObjectIndexStaticObjects* pIndex = hplNew(cEditorObjectIndexStaticObjects, (c.mpEditor, vDirs[i]));
+			// PENUMBRA: the index is deleted below, so its entries must not queue thumbnails.
+			c.mpEditor->GetThumbnailBuilder()->SetPaused(true);
 			pIndex->Create();
+			c.mpEditor->GetThumbnailBuilder()->SetPaused(false);
 			MCPCollectIndexEntries(pIndex->GetRootDir(), "static", sCat, sQuery, bBounds, lLimit, arr, a, setCats, lTotal);
 			hplDelete(pIndex);
 		}
@@ -2474,7 +2478,10 @@ static const cMCPToolDef gvTools[] =
 		for(size_t i=0;i<vDirs.size();++i)
 		{
 			cEditorObjectIndexEntities* pIndex = hplNew(cEditorObjectIndexEntities, (c.mpEditor, vDirs[i]));
+			// PENUMBRA: the index is deleted below, so its entries must not queue thumbnails.
+			c.mpEditor->GetThumbnailBuilder()->SetPaused(true);
 			pIndex->Create();
+			c.mpEditor->GetThumbnailBuilder()->SetPaused(false);
 			MCPCollectIndexEntries(pIndex->GetRootDir(), "entity", sCat, sQuery, bBounds, lLimit, arr, a, setCats, lTotal);
 			hplDelete(pIndex);
 		}

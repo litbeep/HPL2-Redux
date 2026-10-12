@@ -34,6 +34,9 @@ using namespace hpl;
 #include "../common/DirectoryHandler.h"
 #include "../common/EditorFileWatcher.h"
 #include "../common/PrefabManager.h"
+#ifdef PENUMBRA
+#include "EditorInstall.h" // PENUMBRA: penumbra/src/editor
+#endif
 
 #include "../common/EditorActionHandler.h"
 
@@ -1160,6 +1163,12 @@ void cLevelEditor::OnInitLayout() {
 //--------------------------------------------------------------------
 
 void cLevelEditor::OnSetUpDirectories() {
+#ifdef PENUMBRA
+  // PENUMBRA: objects come from the Penumbra install, which is read-only;
+  // maps are made and saved in the user directory.
+  const tWString &sWorkingDir = penumbra::EditorContentDir();
+  mpDirHandler->AddLookUpDir(eDir_Maps, penumbra::EditorMapsDir(), true);
+#else
   const tWString &sWorkingDir = GetWorkingDir();
 
   mpDirHandler->AddLookUpDir(
@@ -1167,6 +1176,7 @@ void cLevelEditor::OnSetUpDirectories() {
       sWorkingDir +
           mpMainConfig->GetStringW("Directories", "MapsDir", _W("maps")),
       true);
+#endif
   mpDirHandler->AddLookUpDir(
       eDir_StaticObjects,
       sWorkingDir + mpMainConfig->GetStringW("Directories", "StaticObjectsDir",

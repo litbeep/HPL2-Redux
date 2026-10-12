@@ -202,7 +202,7 @@ void cEditorThumbnailBuilder::BuildThumbnailFromMeshEntity(cMeshEntity* apEntity
 	// Target setup failed (no viewport), or the entity was created in the
 	// wrong world (must be GetWorld() — the builder's own): safe no-op, but
 	// we own the entity, so clean it up.
-	if(mpWorld==NULL || apEntity->GetWorld()!=mpWorld || !aOnReady)
+	if(mpWorld==NULL || apEntity->GetWorld()!=mpWorld || !aOnReady || mbPaused)
 	{
 		if(apEntity->GetWorld()) apEntity->GetWorld()->DestroyMeshEntity(apEntity);
 		return;

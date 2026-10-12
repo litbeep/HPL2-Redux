@@ -55,6 +55,9 @@ bool iEditorObjectIndexEntryMeshObject::CreateFromFile(const tWString& asFilenam
 	iEditorObjectIndex* pIndex = mpParentDir->GetIndex();
 
 	cMeshEntity* pMeshEntity = CreateTempEntity(pIndex->GetEditor()->GetTempWorld());
+	// PENUMBRA: a file that fails to load is left out rather than crashing the editor.
+	if(pMeshEntity==NULL)
+		return false;
 
 	mlTriangleCount = pMeshEntity->GetMesh()->GetTriangleCount();
 
@@ -116,6 +119,7 @@ void iEditorObjectIndexEntryMeshObject::BuildThumbnail()
 		// world). Capturing `this` is safe: PreBuild flushes the queue at the
 		// start of every index Refresh, before entries are deleted/recreated.
 		cMeshEntity* pEnt = CreateTempEntity(pTmbBuilder->GetWorld());
+		if(pEnt==NULL) return; // PENUMBRA: see CreateFromFile
 
 		pTmbBuilder->BuildThumbnailFromMeshEntity(pEnt,
 			[this](SharedResourceHandle<Image> apImage)

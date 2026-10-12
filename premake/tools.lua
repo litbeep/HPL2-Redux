@@ -13,6 +13,11 @@ local RESOURCES = TOOLS .. "/resources"
 -- over RESOURCES for the AMFP product only: the shared EntityTypes.cfg /
 -- AreaTypes.cfg are TDD's, and the editors drop whatever those don't declare.
 local RESOURCES_AMFP = TOOLS .. "/resources_amfp"
+-- PENUMBRA: the Penumbra level editor's own files (its settings), copied over
+-- RESOURCES with the product's (fonts, GUI skin). Its install and user
+-- directory code is in penumbra/src/common and penumbra/src/editor.
+local PENUMBRA = ROOT .. "/penumbra"
+local RESOURCES_PENUMBRA = { PENUMBRA .. "/resources", PENUMBRA .. "/resources_editor" }
 
 local function winpath(p) return (p:gsub("/", "\\")) end
 
@@ -33,8 +38,9 @@ end
 -- HPL2_AMFP (+ -DAMFP via link_engine), whose class layouts only match the
 -- AMFP AngelScript headers.
 local function editor_includes(product)
+    -- PENUMBRA: its engine build uses AMFP's AngelScript too.
     local angelscript_include =
-        product == "amfp" and ANGELSCRIPT_AMFP_INCLUDE or ANGELSCRIPT_INCLUDE
+        (product == "amfp" or product == "penumbra") and ANGELSCRIPT_AMFP_INCLUDE or ANGELSCRIPT_INCLUDE
     includedirs {
         EDITORS .. "/common",
         ROOT .. "/HPL2/core/include",
@@ -50,6 +56,12 @@ local function editor_includes(product)
     vulkan_includes()
     mathlib_use()
     defines { "USERDIR_RESOURCES", "RAPIDJSON_HAS_STDSTRING=1" }
+    if product == "penumbra" then
+        -- PENUMBRA: the install and user directory code shared with the game.
+        includedirs { PENUMBRA .. "/src/common", PENUMBRA .. "/src/editor" }
+        files { PENUMBRA .. "/src/common/*.cpp", PENUMBRA .. "/src/common/*.h",
+                PENUMBRA .. "/src/editor/*.cpp", PENUMBRA .. "/src/editor/*.h" }
+    end
     link_engine("game", product)
     filter "system:linux"
         linkoptions { "-Wl,-rpath,'$$ORIGIN/libs'", "-Wl,-rpath,'$$ORIGIN'" }
@@ -71,6 +83,10 @@ local function tool_resources_postbuild(product)
         }
         if product == "amfp" then
             postbuildcommands { string.format('cp -R "%s/." "%s/"', RESOURCES_AMFP, dest) }
+        elseif product == "penumbra" then
+            for _, dir in ipairs(RESOURCES_PENUMBRA) do
+                postbuildcommands { string.format('cp -R "%s/." "%s/"', dir, dest) }
+            end
         end
     filter "system:windows"
         postbuildcommands {
@@ -82,6 +98,12 @@ local function tool_resources_postbuild(product)
                 string.format('xcopy /E /I /Y /Q "%s" "%s\\" >nul',
                     winpath(RESOURCES_AMFP), winpath(dest)),
             }
+        elseif product == "penumbra" then
+            for _, dir in ipairs(RESOURCES_PENUMBRA) do
+                postbuildcommands {
+                    string.format('xcopy /E /I /Y /Q "%s" "%s\\" >nul', winpath(dir), winpath(dest)),
+                }
+            end
         end
     filter {}
 end
@@ -89,6 +111,7 @@ end
 -- The AMFP copy gets its own project (and so its own objdir) but keeps the
 -- executable name, staged into the AMFP runtime dir next to AmnesiaAMFP.
 local function tool_project_name(name, product)
+    if product == "penumbra" then return name .. "_Penumbra" end -- PENUMBRA
     return product == "amfp" and (name .. "_AMFP") or name
 end
 
@@ -326,3 +349,11 @@ declare_tools()
 product_activate(product_context("amfp"))
 declare_tools("amfp")
 product_deactivate()
+
+-- PENUMBRA: the level editor against the Penumbra engine, staged next to the
+-- game in build-premake/penumbra/; declared only with --product=penumbra.
+if product_is_selected("penumbra") then
+    product_activate(product_context("penumbra"))
+    editor_target("LevelEditor", "leveleditor", leveleditor, "penumbra")
+    product_deactivate()
+end

@@ -157,10 +157,10 @@ needs comparison with Antumbra.
 From the repository root, after building `--product=penumbra`:
 
 ```powershell
-.\build-premake\penumbra\Release\Penumbra.exe --game "C:\Steam\steamapps\common\Penumbra Overture" --map level00_01_boat_cabin.dae --start link1
+.\build-premake\penumbra\Release\Penumbra.exe --game "<Penumbra Overture install>" --map level00_01_boat_cabin.dae --start link1
 ```
 
-Use your own install path. Mouse look and WASD move the camera; Q/E move
+Mouse look and WASD move the camera; Q/E move
 down/up, Left Shift moves faster, and Escape exits. The camera starts 1.7
 units above the entrance. `--renderer standard` selects the standard
 renderer; `--renderer raytraced` selects ray tracing. Without an override,
@@ -215,8 +215,8 @@ head bob, footsteps, inventory or interaction system.
 
 On Windows, `.\run-penumbra.ps1` from the repository root launches the
 Release build in the boat cabin with walking and the standard renderer.
-The launcher defaults to `C:\Steam\steamapps\common\Penumbra Overture`;
-use `-GameDir "D:\Games\Penumbra Overture"` for another install. Options
+The launcher finds Overture in any Steam library; use
+`-GameDir <install>` for another install. Options
 include `-Renderer raytraced`, `-FreeCamera`, `-Map <file> -Start <name>`,
 `-Configuration Debug`, and `-Frames 24`. Run `.\run-penumbra.ps1 -Help`
 for usage. It can also be invoked by its full path from another directory.
@@ -385,7 +385,7 @@ For regression checks (original generated fixtures, optional unchanged
 retail boat script):
 
 ```powershell
-python tests/penumbra_script_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "D:\Documents\Penumbra Redux\penumbra.log" --game "C:\Steam\steamapps\common\Penumbra Overture"
+python tests/penumbra_script_smoke.py --exe build-premake/penumbra/Release/Penumbra.exe --log "<Documents>\Penumbra Redux\penumbra.log" --game "<Penumbra Overture install>"
 ```
 
 **Names and failures follow HPL1.** A `_ref_` entity is named after the
@@ -449,7 +449,7 @@ stubs (most used: `SetMapGameNameTrans`, `PreloadSound`, `AutoSave`,
 `SetSkybox`, `SetDoorLocked`, `SetLampLit`) and the area behaviours.
 Black Plague and Requiem have not been swept.
 
-### 7. Later: editing and the other games
+### 7. Editing and the other games
 
 - Save a loaded level as `.map` plus HPL2 `.ent` files into the user's
   directory, so the reimagining's changes can be made in the level editor;
@@ -457,6 +457,39 @@ Black Plague and Requiem have not been swept.
   and `AreaTypes.cfg`. Converted files stay on the user's machine.
 - Black Plague and Requiem levels: same formats; check their data for
   anything Overture's never used.
+
+**Started: the level editor places the install's models and entities.**
+`--product=penumbra` also declares `LevelEditor_Penumbra` (premake/tools.lua),
+the HPL2 level editor built against the Penumbra engine and staged next to
+the game as `LevelEditor`. It reads the install the way the game does
+(`penumbra/src/common`, shared with the game) and never writes to it:
+
+- The install is `[Directories] PenumbraInstall` in `MainEditorSettings.cfg`
+  next to the editor (`penumbra/resources_editor`), or Overture in a Steam
+  library. The game finds it the same way when `--game` is left out.
+- The Static Objects browser lists the install's 369 models, the Entities
+  browser its HPL1 `.ent` files (386 of 389; three name models that don't
+  exist). The editor shows an HPL1 entity as its model with the `.ent`'s
+  materials (`penumbra/src/editor`); a map refers to the `.ent`, and the
+  game loads all of it (bodies, joints, lights) through `cWorld::CreateEntity`.
+- Maps are made and saved in `<user dir>/maps`, which the game searches
+  above the install. They name the install's files relative to its data
+  root (`models/boat/boat_bed.dae`), so a map works with any install.
+  `PlayerStart` areas are the game's entrances.
+- Mesh and animation caches, thumbnails and the editor's log and settings
+  go to the user directory (`Penumbra Redux/`, `Penumbra Redux/Editor/`).
+  Animation caches (`.anm`) used to be written next to their `.dae`: the
+  game had put 26 into the install before this was found; the level sweep
+  now fails if the install changes.
+- The editor's MCP tools (port 8787) drive it for tests: a map with install
+  models, two HPL1 entities, a light and an entrance was built through
+  them, saved, and run in the game, where the entities' bodies and joints
+  load and a dropped flashlight comes to rest on the floor.
+
+Not yet: Penumbra's area types and entity variables in the editor's class
+definitions, the install's `materials.cfg` (physics materials) and three
+editor pointer images in the editor, `capture_view` on Direct3D 12 (it is
+Vulkan only), and opening an original level in the editor.
 
 ## Open questions
 

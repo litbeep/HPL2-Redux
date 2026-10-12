@@ -177,6 +177,8 @@ bool cEntityWrapperArea::SetProperty(int alPropID, const tString& asX)
 		SetMeshFile(asX);
 		break;
 	case eAreaStr_Type:
+		// PENUMBRA: switch type, as the area edit box's action does (MCP set_property).
+		if(asX.empty()==false && asX!=GetAreaType()) SetAreaType(asX);
 		break;
 	default:
 		return false;
@@ -198,6 +200,7 @@ bool cEntityWrapperArea::GetProperty(int alPropID, tString& asX)
 		asX = GetMeshFile();
 		break;
 	case eAreaStr_Type:
+		asX = GetAreaType(); // PENUMBRA: was left empty
 		break;
 	default:
 		return false;

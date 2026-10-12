@@ -90,6 +90,11 @@ public:
 	void Pump(float afFrameTime);
 	bool HasPendingJobs() const { return mlstJobs.empty()==false; }
 
+	// PENUMBRA: while paused, new jobs are dropped (their entities destroyed, their
+	// callbacks never fire): for a temporary index, whose entries a queued
+	// callback would outlive (MCP list_object_library).
+	void SetPaused(bool abX) { mbPaused = abX; }
+
 	// The builder's own world — job entities must be created here (isolated
 	// from the editor temp world so nothing else leaks into thumbnails).
 	cWorld* GetWorld() { return mpWorld; }
@@ -121,6 +126,7 @@ protected:
 		tThumbnailReadyCallback mOnReady;
 	};
 	std::list<cThumbnailJob> mlstJobs;
+	bool mbPaused = false;
 
 	// Destination for the copy recorded by RecordCacheCopy — armed by Pump
 	// around Evaluate.

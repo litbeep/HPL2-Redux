@@ -27,6 +27,9 @@ tWString gsNullStringW = _W("");
 //-------------------------------------------------------------------------
 
 #include "../../LuxBasePersonal.h"
+#ifdef PENUMBRA
+#include "EditorInstall.h" // PENUMBRA: penumbra/src/editor
+#endif
 
 //-------------------------------------------------------------------------
 
@@ -267,18 +270,30 @@ tWString cDirectoryHandler::GetPathRelToWD(const tWString& asPath)
 	tWStringVec vPathSteps;
 	cString::GetStringVecW(sPath, vPathSteps, &sSep);
 
-	int i;
-	for(i=0; i<(int)mvWorkingDirPathSteps.size() && i<(int)vPathSteps.size(); ++i)
+	tWStringVec vBaseSteps = mvWorkingDirPathSteps;
+#ifdef PENUMBRA
+	// PENUMBRA: relative to the Penumbra install's data root instead, so a map
+	// names the install's files ("models/boat/boat_bed.dae") the same way on
+	// every machine.
+	if(penumbra::EditorContentDir().empty()==false)
 	{
-		const tWString& sWDStep = mvWorkingDirPathSteps[i];
+		vBaseSteps.clear();
+		cString::GetStringVecW(penumbra::EditorContentDir(), vBaseSteps, &sSep);
+	}
+#endif
+
+	int i;
+	for(i=0; i<(int)vBaseSteps.size() && i<(int)vPathSteps.size(); ++i)
+	{
+		const tWString& sWDStep = vBaseSteps[i];
 		const tWString& sPathStep = vPathSteps[i];
 
 		if(IsSameDir(sPathStep,sWDStep)==false)	break;
 	}
 
-	if(i < (int)mvWorkingDirPathSteps.size())
+	if(i < (int)vBaseSteps.size())
 	{
-		for(int j=i; j<(int)mvWorkingDirPathSteps.size(); ++j)
+		for(int j=i; j<(int)vBaseSteps.size(); ++j)
 			sRelPath += cString::AddSlashAtEndW(_W(".."));
 	}
 
