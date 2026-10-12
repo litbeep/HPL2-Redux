@@ -29,6 +29,8 @@ public:
 	void Pickup(const std::string& entity);
 	void UseItem(const std::string& item, const std::string& entity);
 	void DismissMessage();
+	// Leave for another map at once, as a link would (--travel checks).
+	void Travel(const std::string& map, const std::string& start);
 	std::string FindTarget(const hpl::cVector3f& origin, const hpl::cVector3f& direction, float distance) const;
 	bool Failed() const { return mbFailed; } // The host itself could not be set up
 	int Errors() const { return mlErrors; }  // Script errors so far, all maps
@@ -61,6 +63,7 @@ private:
 	std::string EntityType(const std::string& entFile);
 	hpl::cMeshEntity* Mesh(const std::string& name) const;
 	std::vector<hpl::iPhysicsBody*> Bodies(const std::string& name) const;
+	std::string SoundVariant(const std::string& name);
 	hpl::iLight* Light(const std::string& name) const;
 	std::string Translate(const std::string& category, const std::string& entry) const;
 	void ChangeMap(const cLink& link);
@@ -75,6 +78,7 @@ private:
 	int mlBudget = 0, mlErrors = 0;
 	std::map<std::string,std::filesystem::path> mFiles;
 	std::map<std::string,std::string> mEntityTypes;
+	std::map<std::string,int> mLastSoundVariant;
 	std::map<std::string,std::vector<hpl::iPhysicsBody*>> mDisabledBodies;
 	std::map<std::string,std::string> mTranslations;
 	std::map<std::string,int> mLocalVars, mGlobalVars, mEntityVars;

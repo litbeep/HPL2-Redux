@@ -37,7 +37,7 @@ def main():
         root=Path(temp)
         (root/"resources.cfg").write_text('<Resources><Directory Path="/"/></Resources>')
         scene='<COLLADA><library_visual_scenes><visual_scene><node name="_start_Entry"/><node name="_area_link_exit"/></visual_scene></library_visual_scenes></COLLADA>'
-        for name in ("first","second","bad","budget","missingstart","throws","after"):
+        for name in ("first","second","bad","budget","missingstart","throws","after","compat"):
             (root/f"{name}.dae").write_text(scene)
         (root/"first.hps").write_text('''
 void Check(bool value) { if(!value) { int zero=0; int fail=1/zero; } }
@@ -76,7 +76,10 @@ void OnExit() { Print("SECOND EXIT"); }
         (root/"budget.hps").write_text('void OnStart() { while(true) { } }')
         (root/"throws.hps").write_text('void OnStart() { SetupLink("exit","after.dae","Entry","","",0,0); int zero=0; int fail=1/zero; }')
         (root/"after.hps").write_text('void OnStart() { Print("AFTER START"); }')
-        (root/"missingstart.hps").write_text('void OnStart() { SetupLink("exit","second.dae","Missing","","",0,0); }')
+        # HPL1-era script forms: T[] arrays with initialisation lists, and an
+        # if with an empty statement, after which the code always runs.
+        (root/"compat.hps").write_text('int[] gvNumbers = {1,2,3};\nstring[] gvNames = {"A","B"};\nvoid OnStart() { if(gvNumbers[2] == 3) Print("ARRAY " + gvNames[1]); if(false); Print("EMPTY IF RAN"); }')
+        (root/"missingstart.hps").write_text('void OnStart() { SetupLink("exit","after.dae","Missing","","",0,0); }')
         before=hashes(root)
         output=run(exe,args.log,root,actions=("10:invoke:Resume","30:dismiss","40:interact:exit"))
         for text in ("FIRST START","FIRST LOAD","ACK","FIRST EXIT","SECOND START","SECOND LOAD","SECOND EXIT","script transition complete: second.dae, start 'Entry'"):
@@ -90,8 +93,12 @@ void OnExit() { Print("SECOND EXIT"); }
         output=run(exe,args.log,root,"throws.dae",actions=("1:interact:exit",),success=False)
         assert output.count("ERROR:")==1 and "AFTER START" in output and "script transition complete: after.dae" in output,output
         print("PASS a failing script is reported without stopping later maps",flush=True)
-        run(exe,args.log,root,"missingstart.dae",actions=("1:interact:exit",),success=False)
-        print("PASS missing transition entrances fail",flush=True)
+        output=run(exe,args.log,root,"compat.dae")
+        assert "ARRAY B" in output and "EMPTY IF RAN" in output,output
+        print("PASS HPL1 script forms: arrays and empty if statements",flush=True)
+        output=run(exe,args.log,root,"missingstart.dae",actions=("1:interact:exit",),success=True)
+        assert "Couldn't find start position 'Missing'" in output and "AFTER START" in output,output
+        print("PASS a link to a missing entrance uses the first, as HPL1",flush=True)
         assert before==hashes(root),"Script checks modified source files"
     if args.game:
         game=args.game.resolve()

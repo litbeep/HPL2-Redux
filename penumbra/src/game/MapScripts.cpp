@@ -1,9 +1,11 @@
 // GPLv3 or later. HPL1 script API adapted from Frictional's releases via Antumbra.
 #include "MapScripts.h"
 #include "GameInstall.h"
+#include "impl/scriptarray.h"
 #include "impl/scriptstdstring.h"
 #include "engine/Engine.h"
 #include "resources/Resources.h"
+#include "resources/FileSearcher.h"
 #include "scene/World.h"
 #include "scene/Camera.h"
 #include "scene/MeshEntity.h"
@@ -21,6 +23,7 @@
 #include "system/String.h"
 #include <tinyxml2.h>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <fstream>
 #include <new>
@@ -34,6 +37,31 @@ namespace {
 	const cApi kApi[] = {
 #include "ScriptApi.inc"
 	};
+	// HPL1's AngelScript accepted an if with an empty statement, "if(x);",
+	// which later versions reject (several Overture scripts have one). Rewrite
+	// it as "if(x){}", which means the same: the code after it always runs.
+	int FixEmptyIfs(std::string& source)
+	{
+		int count=0;
+		for(size_t i=0; (i=source.find("if",i))!=std::string::npos; i+=2)
+		{
+			if(i>0 && (std::isalnum(static_cast<unsigned char>(source[i-1])) || source[i-1]=='_')) continue;
+			size_t open=i+2;
+			while(open<source.size() && std::isspace(static_cast<unsigned char>(source[open]))) ++open;
+			if(open>=source.size() || source[open]!='(') continue;
+			size_t close=open; int depth=0;
+			for(; close<source.size(); ++close)
+			{
+				if(source[close]=='(') ++depth;
+				else if(source[close]==')' && --depth==0) break;
+			}
+			if(close>=source.size()) break;
+			size_t next=close+1;
+			while(next<source.size() && (source[next]==' ' || source[next]=='\t')) ++next;
+			if(next<source.size() && source[next]==';') { source.replace(next,1,"{}"); ++count; }
+		}
+		return count;
+	}
 	std::string Lower(std::string text) { for(char& c : text) c = char(std::tolower(static_cast<unsigned char>(c))); return text; }
 	std::string Attr(const tinyxml2::XMLElement* element, const char* name) { const auto* s = element->Attribute(name); return s ? s : ""; }
 	bool Ends(const std::string& text, const std::string& ending) { return text.size() >= ending.size() && text.compare(text.size()-ending.size(),ending.size(),ending) == 0; }
@@ -96,6 +124,8 @@ cMapScripts::cMapScripts(const fs::path& root, cEngine* engine, const std::strin
 	if(!mpScriptEngine) { mbFailed = true; return; }
 	mpScriptEngine->SetUserData(this);
 	mpScriptEngine->SetMessageCallback(asFUNCTION(CompileMessage),this,asCALL_CDECL);
+	// As HPL1 (Antumbra) did: arrays, with T[] as array<T>, then strings.
+	RegisterScriptArray(mpScriptEngine,true);
 	RegisterStdString(mpScriptEngine);
 	for(const auto& api : kApi)
 		if(mpScriptEngine->RegisterGlobalFunction(api.declaration,asFUNCTION(Generic),asCALL_GENERIC)<0)
@@ -208,7 +238,9 @@ bool cMapScripts::Load(const std::string& map, cWorld* world, cCamera* camera)
 	ReadEntities(mapPath);
 	const fs::path script=FindFile(fs::path(map).replace_extension(".hps").string());
 	if(script.empty()) { Log("Penumbra: map '%s' has no script\n",map.c_str()); return true; }
-	std::ifstream input(script,std::ios::binary); const std::string source((std::istreambuf_iterator<char>(input)),{});
+	std::ifstream input(script,std::ios::binary); std::string source((std::istreambuf_iterator<char>(input)),{});
+	if(const int fixed=FixEmptyIfs(source))
+		Log("Penumbra script %s: %d empty if statements kept as HPL1 ran them\n",script.filename().string().c_str(),fixed);
 	auto* module=mpScriptEngine->GetModule("PenumbraMap",asGM_ALWAYS_CREATE);
 	if(module->AddScriptSection(script.filename().string().c_str(),source.data(),source.size())<0 || module->Build()<0)
 	{
@@ -383,6 +415,27 @@ cMeshEntity* cMapScripts::Mesh(const std::string& name) const
 	while(meshes.HasNext()) { auto* mesh=meshes.Next(); if(mesh->GetName()==found->second.mesh) return mesh; }
 	return nullptr;
 }
+std::string cMapScripts::SoundVariant(const std::string& name)
+{
+	// As HPL1's cSoundHandler::CreateChannel: a name not ending in 1-9 plays
+	// one of its numbered variants (name1, name2...) at random, not the one
+	// played last; without variants, the name itself.
+	if(name.empty() || (name.back()>='1' && name.back()<='9') || !mpEngine) return name;
+	auto* searcher=mpEngine->GetResources()->GetFileSearcher();
+	auto exists=[&](const std::string& file) {
+		for(const char* ext : {"ogg","wav"})
+			if(!searcher->GetFilePath(cString::SetFileExt(file,ext)).empty()) return true;
+		return false;
+	};
+	int count=0;
+	while(exists(name+std::to_string(count+1))) ++count;
+	if(count==0) return name;
+	int& last=mLastSoundVariant[name];
+	int pick=cMath::RandRectl(1,count);
+	while(count>2 && pick==last) pick=cMath::RandRectl(1,count);
+	last=pick;
+	return name+std::to_string(pick);
+}
 std::vector<iPhysicsBody*> cMapScripts::Bodies(const std::string& name) const
 {
 	// The entity loader stores each body's entity in its user data.
@@ -416,6 +469,11 @@ void cMapScripts::SetActive(const std::string& name, bool active)
 		for(auto* body : disabled->second) body->SetActive(true);
 		mDisabledBodies.erase(disabled);
 	}
+}
+void cMapScripts::Travel(const std::string& map, const std::string& start)
+{
+	cLink link; link.map=map; link.start=start;
+	ChangeMap(link);
 }
 void cMapScripts::ChangeMap(const cLink& link)
 {
@@ -539,7 +597,7 @@ void cMapScripts::Dispatch(asIScriptGeneric* call)
 	}
 	else if(name=="PlayMusic" || name=="PlayGameMusic") { if(mpEngine) mpEngine->GetSound()->GetMusicHandler()->Play(s(0),f(1),f(2),b(3),false); }
 	else if(name=="StopMusic" || name=="StopGameMusic") { if(mpEngine) mpEngine->GetSound()->GetMusicHandler()->Stop(f(0)); }
-	else if(name=="PlayGuiSound") { if(mpEngine) mpEngine->GetSound()->GetSoundHandler()->PlayGui(s(0),false,f(1)); }
+	else if(name=="PlayGuiSound") { if(mpEngine) mpEngine->GetSound()->GetSoundHandler()->PlayGui(SoundVariant(s(0)),false,f(1)); }
 	else if(name=="SetParticleSystemActive" || name=="KillParticleSystem") { if(mpWorld) if(auto* ps=mpWorld->GetParticleSystem(s(0))) { if(name=="KillParticleSystem") ps->Kill(); else ps->SetActive(b(1)); } }
 	else
 	{

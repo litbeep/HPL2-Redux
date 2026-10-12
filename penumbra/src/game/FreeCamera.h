@@ -6,6 +6,9 @@
 #include "resources/FontManager.h"
 #include "graphics/FontData.h"
 #include <SDL.h>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace hpl { class cEngine; class cCamera; class cViewport; class iCharacterBody; class cGuiSet; class cGuiGfxElement; }
 
@@ -21,6 +24,9 @@ namespace penumbra {
 		void OnDraw(float afFrameTime) override;
 		void OnPostBufferSwap() override;
 		bool Failed() const { return mbFailed; }
+		// Visit these maps in turn (start "" = the map's first entrance),
+		// alFrames frames each, through the same map change a link makes.
+		void SetTravel(std::vector<std::pair<std::string, std::string>> avStops, int alFrames);
 	private:
 		void HandleEvent(const SDL_Event& aEvent);
 		void CreatePlayerBody();
@@ -37,6 +43,9 @@ namespace penumbra {
 		cMapScripts* mpScripts;
 		hpl::cGuiGfxElement* mpBlack = nullptr;
 		int mlFrameLimit, mlFrames = 0;
+		std::vector<std::pair<std::string, std::string>> mvTravel;
+		size_t mlTravelIndex = 0;
+		int mlTravelFrames = 0, mlTravelNext = 0;
 		hpl::EventHandler<const SDL_Event&> mEvents;
 	};
 }

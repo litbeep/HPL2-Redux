@@ -40,6 +40,7 @@
 #include "graphics/PostEffect_ToneMap.h"
 
 #include "GameInstall.h"
+#include "CrashLog.h"
 #include "FreeCamera.h"
 #include "MapScripts.h"
 #include "physics/Physics.h"
@@ -114,6 +115,7 @@ namespace {
 		int mlScriptSteps = 120;
 		std::vector<tString> mvScriptActions;
 		tString msScriptApiStatus;
+		tString msTravel;
 	};
 
 	const char* kUsage =
@@ -131,6 +133,8 @@ namespace {
 		"  --script-steps N  Fixed 60 Hz ticks for script checks\n"
 		"  --script-action <tick:action:name>  Scheduled test event\n"
 		"  --script-api-status <file>  Write the API status table\n"
+		"  --travel all|<map[:start]>,...  After --map, change map to each in turn,\n"
+		"                    --frames frames each (all: every map in maps/)\n"
 		"  Controls: WASD fly, Q/E down/up, Shift faster, mouse look, Esc quit\n"
 		"  Scripts: left mouse interact, right mouse examine, U use item, Space/Enter dismiss\n"
 		"  --help            Show this text\n";
@@ -146,6 +150,7 @@ namespace {
 			else if(sArg == "--debug-areas") { aOptions.mbDebugAreas = true; continue; }
 			else if(sArg == "--script-check") { aOptions.mbScriptCheck = true; continue; }
 			else if(sArg == "--script-api-status") pValue = &aOptions.msScriptApiStatus;
+			else if(sArg == "--travel") pValue = &aOptions.msTravel;
 			else if(sArg == "--script-action")
 			{
 				if(i+1>=avArgs.size()) { asError="--script-action needs tick:action:name"; return false; }
@@ -184,6 +189,8 @@ namespace {
 		{ asError = "--renderer must be standard or raytraced"; return false; }
 		if(aOptions.mlFrames > 0 && aOptions.msMap.empty())
 		{ asError = "--frames requires --map and --start"; return false; }
+		if(!aOptions.msTravel.empty() && (aOptions.mlFrames <= 0 || aOptions.mbScriptCheck))
+		{ asError = "--travel requires --frames and a viewer run"; return false; }
 		if(aOptions.msGame.empty())
 		{
 			asError = "--game <install> is required";
@@ -310,6 +317,7 @@ namespace {
 		CreateFolders(sPersonalDir, sUserFolder);
 
 		SetLogFile(sUserDir + mainInit.GetStringW("Directories", "LogFile", _W("penumbra.log")));
+		penumbra::InstallCrashLog();
 		if(options.mbScriptCheck)
 		{
 			penumbra::cMapScripts scripts(dataRoot,nullptr,mainInit.GetString("Language","File","English.lang"));
@@ -343,7 +351,9 @@ namespace {
 				{
 					const auto map=scripts.NextMap(); const auto start=scripts.NextStart();
 					scripts.Leave();
-					if(!scripts.Load(map) || !scripts.HasStart(start)) { Error("Penumbra: script transition map/start invalid\n"); return 1; }
+					if(!scripts.Load(map)) { Error("Penumbra: script transition map '%s' invalid\n",map.c_str()); return 1; }
+					// As HPL1, a missing entrance means the level's first one.
+					if(!scripts.HasStart(start)) Warning("Couldn't find start position '%s' in '%s'; using the first\n",start.c_str(),map.c_str());
 					Log("Penumbra script transition complete: %s, start '%s'\n",map.c_str(),start.c_str());
 				}
 			}
@@ -534,7 +544,31 @@ namespace {
 						if(!scripts.Load(options.msMap,pWorld,pCamera)) lResult=1;
 						else
 						{
-							penumbra::cFreeCamera camera(pEngine, pCamera, pViewport, options.mlFrames, options.mbWalk, options.mbDebugAreas,&scripts);
+							// --travel: the stops, each shown for --frames frames.
+							std::vector<std::pair<tString,tString>> vTravel;
+							if(options.msTravel == "all")
+							{
+								std::vector<fs::path> vMaps;
+								std::error_code ec;
+								for(const auto& entry : fs::directory_iterator(penumbra::ResolvePathNoCase(dataRoot, "maps"), ec))
+									if(cString::ToLowerCase(ToUtf8(entry.path().extension())) == ".dae") vMaps.push_back(entry.path());
+								std::sort(vMaps.begin(), vMaps.end(), [](const fs::path& a, const fs::path& b) {
+									return cString::ToLowerCase(ToUtf8(a.filename())) < cString::ToLowerCase(ToUtf8(b.filename())); });
+								for(const auto& path : vMaps) vTravel.emplace_back(ToUtf8(path.filename()), "");
+							}
+							else if(!options.msTravel.empty())
+							{
+								tStringVec vStops; tString sComma = ",";
+								cString::GetStringVec(options.msTravel, vStops, &sComma);
+								for(const auto& stop : vStops)
+								{
+									const size_t colon = stop.find(':');
+									vTravel.emplace_back(stop.substr(0, colon), colon == tString::npos ? "" : stop.substr(colon+1));
+								}
+							}
+							const int lFrames = options.mlFrames * int(vTravel.size() + 1);
+							penumbra::cFreeCamera camera(pEngine, pCamera, pViewport, lFrames, options.mbWalk, options.mbDebugAreas,&scripts);
+							if(!vTravel.empty()) camera.SetTravel(vTravel, options.mlFrames);
 							pEngine->GetUpdater()->AddGlobalUpdate(&camera);
 							pEngine->SetWaitIfAppOutOfFocus(options.mlFrames == 0);
 							pEngine->Run();

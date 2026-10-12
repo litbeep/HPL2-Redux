@@ -68,6 +68,13 @@ namespace penumbra {
 		const auto map=mpScripts->NextMap(), start=mpScripts->NextStart();
 		auto* world=mpEngine->GetScene()->LoadWorld(map,0);
 		auto* entrance=world ? world->GetStartPosEntity(start) : nullptr;
+		if(world && !entrance)
+		{
+			// As HPL1 (cPlayer::PlaceAt): a link naming a missing entrance (two
+			// of Overture's do) puts the player at the level's first one.
+			if(!start.empty()) hpl::Warning("Couldn't find start position '%s' in '%s'; using the first\n",start.c_str(),map.c_str());
+			entrance=world->GetFirstStartPosEntity();
+		}
 		if(!entrance)
 		{
 			hpl::Error("Penumbra: transition to '%s' start '%s' failed\n",map.c_str(),start.c_str());
@@ -232,9 +239,24 @@ namespace penumbra {
 		}
 	}
 
+	void cFreeCamera::SetTravel(std::vector<std::pair<std::string, std::string>> avStops, int alFrames)
+	{
+		mvTravel = std::move(avStops);
+		mlTravelIndex = 0;
+		mlTravelFrames = alFrames;
+		mlTravelNext = alFrames;
+	}
+
 	void cFreeCamera::OnPostBufferSwap()
 	{
 		++mlFrames;
+		if(mpScripts && mlTravelIndex < mvTravel.size() && mlFrames >= mlTravelNext && !mpScripts->TransitionReady())
+		{
+			const auto& stop = mvTravel[mlTravelIndex++];
+			hpl::Log("Penumbra travel %d/%d: %s\n", int(mlTravelIndex), int(mvTravel.size()), stop.first.c_str());
+			mpScripts->Travel(stop.first, stop.second);
+			mlTravelNext = mlFrames + mlTravelFrames;
+		}
 		if(mlFrameLimit > 0 && mlFrames >= mlFrameLimit)
 		{
 			hpl::Log("Penumbra rendered %d frames\n", mlFrames);
