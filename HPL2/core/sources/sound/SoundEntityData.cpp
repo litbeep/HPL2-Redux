@@ -34,6 +34,10 @@
 
 #include <tinyxml2.h>
 #include "resources/XmlHelper.h"
+#ifdef PENUMBRA
+#include "resources/FileSearcher.h" // PENUMBRA: numbered HPL1 sound variants.
+#include "sound/LowLevelSound.h"
+#endif
 
 
 namespace hpl {
@@ -196,6 +200,40 @@ namespace hpl {
 		////////////////////////////////////////////////
 		// SOUNDS
 		tinyxml2::XMLElement *pSoundsElem = pDoc->FirstChildElement("SOUNDS");
+#ifdef PENUMBRA
+		// PENUMBRA: HPL1 stores one filename per sound type in MAIN.
+		if(pSoundsElem == NULL && pDoc->FirstChildElement("MAIN"))
+		{
+			auto* pMain = pDoc->FirstChildElement("MAIN");
+			const char* names[] = {"MainSound", "StartSound", "StopSound"};
+			const eSoundEntityType types[] = {eSoundEntityType_Main, eSoundEntityType_Start, eSoundEntityType_Stop};
+			for(int i=0; i<3; ++i)
+			{
+				tString sFile = GetAttributeString(pMain, names[i]);
+				if(sFile.empty()) continue;
+				tStringList formats;
+				mpSound->GetLowLevel()->GetSupportedFormats(formats);
+				auto exists = [this, &formats](const tString& name) {
+					if(!cString::GetFileExt(name).empty()) return !mpResources->GetFileSearcher()->GetFilePath(name).empty();
+					for(const auto& format : formats)
+						if(!mpResources->GetFileSearcher()->GetFilePath(cString::SetFileExt(name, format)).empty()) return true;
+					return false;
+				};
+				// HPL1 chooses a numbered variant unless the name already ends
+				// in 1..9, then falls back to stream_<base>.
+				if(!cString::GetFileExt(sFile).empty() || (sFile.back()>='1' && sFile.back()<='9')) mvSoundNameVecs[types[i]].push_back(sFile);
+				else
+				{
+					for(int variant=1; exists(sFile+cString::ToString(variant)); ++variant)
+						mvSoundNameVecs[types[i]].push_back(sFile+cString::ToString(variant));
+					if(mvSoundNameVecs[types[i]].empty())
+						mvSoundNameVecs[types[i]].push_back(exists("stream_"+sFile) ? "stream_"+sFile : sFile);
+				}
+			}
+		}
+		else
+#endif
+		{
 		if(pSoundsElem==NULL){
 			Error("Couldn't find SOUNDS element in '%s'!\n",asFile.c_str());
 			return false;
@@ -204,6 +242,7 @@ namespace hpl {
 		LoadSoundsInElement(pSoundsElem->FirstChildElement("Main"), &mvSoundNameVecs[eSoundEntityType_Main]);
 		LoadSoundsInElement(pSoundsElem->FirstChildElement("Start"), &mvSoundNameVecs[eSoundEntityType_Start]);
 		LoadSoundsInElement(pSoundsElem->FirstChildElement("Stop"), &mvSoundNameVecs[eSoundEntityType_Stop]);
+		}
 
 
 		////////////////////////////////////////////////

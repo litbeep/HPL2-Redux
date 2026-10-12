@@ -1439,6 +1439,13 @@ iEntity3D *cWorld::CreateEntity(const tString &asName,
   // Get Root element
   tinyxml2::XMLElement *pVarRootElem =
       pDoc->FirstChildElement("UserDefinedVariables");
+  // PENUMBRA: HPL1 selects the product loader from MAIN/Type.
+#ifdef PENUMBRA
+  tinyxml2::XMLElement *pPenumbraMain = pDoc->FirstChildElement("MAIN");
+  if (pPenumbraMain) {
+    sEntityType = "Penumbra" + GetAttributeString(pPenumbraMain, "Type");
+  } else
+#endif
   if (pVarRootElem == NULL) {
     Warning("Can not find a UserDefinedVariables element in '%s'. Using "
             "default entity type\n",

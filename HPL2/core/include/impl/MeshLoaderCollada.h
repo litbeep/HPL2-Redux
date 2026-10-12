@@ -460,6 +460,10 @@ namespace hpl {
 	
 	class cMeshLoaderCollada : public iMeshLoader
 	{
+		// PENUMBRA: reuse the Collada parser without changing mesh loading.
+		friend class cWorldLoaderPenumbraCollada;
+		// PENUMBRA: recover HPL1 body/joint relationships from original model XML.
+		friend class cEntityLoader_PenumbraObject;
 	public:
 		cMeshLoaderCollada(cMeshLoaderMSH *apMeshLoaderMSH, bool abLoadAndSaveMSHFormat);
 		~cMeshLoaderCollada();

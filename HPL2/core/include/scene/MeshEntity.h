@@ -75,6 +75,8 @@ namespace hpl {
 	friend class cSubMeshEntity;
 	friend class cMeshEntityRootNodeUpdate;
 	friend class cMesh;
+	// PENUMBRA: rigid multipart HPL1 models need node states without animation.
+	friend class cEntityLoader_PenumbraObject;
 	public:
 		cMeshEntity(const tString asName,cMesh* apMesh, cMaterialManager* apMaterialManager,
 					cMeshManager* apMeshManager, cAnimationManager *apAnimationManager);

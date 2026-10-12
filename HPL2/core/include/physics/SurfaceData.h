@@ -107,6 +107,8 @@ namespace hpl {
 		void SetMiddleScrapeSpeed(float afX){mfMiddleScrapeSpeed = afX;}
 		void SetMinScrapeContacts(int alX){mlMinScrapeContacts = alX;}
 		void SetScrapeSoundName(const tString &asName){msScrapeSoundName = asName;}
+		// PENUMBRA: check optional effects before preloading a partial test install.
+		const tString& GetScrapeSoundName() const { return msScrapeSoundName; }
 
 		void SetMinRollSpeed(float afX){mfMinRollSpeed = afX;}
 		void SetMinRollFreq(float afX){mfMinRollFreq = afX;}
@@ -117,6 +119,7 @@ namespace hpl {
 		void SetMaxRollFreqSpeed(float afX){mfMaxRollFreqSpeed = afX;}
 		void SetMiddleRollSpeed(float afX){mfMiddleRollSpeed = afX;}
 		void SetRollSoundName(const tString &asName){msRollSoundName = asName;}
+		const tString& GetRollSoundName() const { return msRollSoundName; } // PENUMBRA
 		void SetRollAxisFlags(tFlag aAxisFlags){mRollAxisFlags = aAxisFlags;}
 
         void PreloadData();

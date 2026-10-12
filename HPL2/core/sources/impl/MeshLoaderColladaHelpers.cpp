@@ -82,7 +82,12 @@ namespace hpl {
 #ifndef AMFP
 		if(mbZToY)
 		{
+#ifdef PENUMBRA
+			// PENUMBRA: HPL1 mirrors X for node translations as for vertices.
+			return cVector3f(-apVec[0],apVec[2],apVec[1]);
+#else
 			return cVector3f(apVec[0],apVec[2],apVec[1]);
+#endif
 		}
 #endif
 		return cVector3f(apVec[0],apVec[1],apVec[2]);
@@ -90,7 +95,12 @@ namespace hpl {
 
 	cVector3f cMeshLoaderCollada::GetVectorRotationFromPtr(float *apVec)
 	{
+#ifdef PENUMBRA
+		// PENUMBRA: HPL1 converts rotation axes with the same basis as positions.
+		return GetVectorPosFromPtr(apVec);
+#else
 		return cVector3f(apVec[0],apVec[1],apVec[2]);
+#endif
 	}
 
 	cVector3f cMeshLoaderCollada::GetVectorScaleFromPtr(float *apVec)

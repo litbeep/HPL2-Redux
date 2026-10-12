@@ -181,7 +181,12 @@ namespace hpl {
 			//////////////////
 			//Set material
 			pSubMesh->SetMaterialName(sMaterial);
-			if(sMaterial != "")
+			if(sMaterial != ""
+#ifdef PENUMBRA
+				// PENUMBRA: cached collider/joint helpers have no render material.
+				&& !bCollideShape
+#endif
+				)
 			{
 				//Use fast load material if set.
 				if(	mpMeshManager->GetUseFastloadMaterial() &&	mpMeshManager->GetFastloadMaterial() != "")

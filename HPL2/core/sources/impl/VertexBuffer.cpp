@@ -290,6 +290,12 @@ int cVertexBuffer::GetElementProgramVarIndex(eVertexBufferElement aElement) {
 
 bool cVertexBuffer::Compile(tVertexCompileFlag aFlags) {
   if (aFlags & eVertexCompileFlag_CreateTangents) {
+#ifdef PENUMBRA
+    // PENUMBRA: cached meshes may already contain the tangent element.
+    if (std::none_of(m_vertexElements.begin(), m_vertexElements.end(), [](const auto& element) {
+          return element.type == eVertexBufferElement_Texture1Tangent;
+        }))
+#endif
     CreateElementArray(eVertexBufferElement_Texture1Tangent,
                        eVertexBufferElementFormat_Float, 4);
     auto positionElement =

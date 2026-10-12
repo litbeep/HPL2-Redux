@@ -505,7 +505,12 @@ namespace hpl {
 
 				////////////////////////////
 				// Create a fake material (needed so mat name is saved!)
-				if(aFlags & eMeshLoadFlag_NoMaterial || sMatName == "")
+				if(aFlags & eMeshLoadFlag_NoMaterial || sMatName == ""
+#ifdef PENUMBRA
+					// PENUMBRA: invisible joint/collider helpers have no render material.
+					|| bCollideMeshShape
+#endif
+					)
 				{
                    //Do nothing!
 				}
@@ -1141,6 +1146,10 @@ namespace hpl {
 		//Set if this node has any geometry source
 		if(apColladaNode->msSource!="")		pNode->SetCustomFlags(1);
 		else								pNode->SetCustomFlags(0);
+#ifdef PENUMBRA
+		// PENUMBRA: light and effect sources are not missing submeshes.
+		pNode->SetCustomFlags(apMesh->GetSubMeshName(apColladaNode->msName) ? 1 : 0);
+#endif
 
 		//Log("Node: %s\n",apColladaNode->msName.c_str());
 		//Log(" local node transform: %s\n",pNode->GetLocalPosition().ToString().c_str());

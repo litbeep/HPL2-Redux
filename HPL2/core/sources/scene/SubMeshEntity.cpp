@@ -60,7 +60,9 @@ namespace hpl {
 
 		mbGraphicsUpdated = false;
 
-		if(mpMeshEntity->GetMesh()->GetSkeleton())
+		// PENUMBRA: HPL1 skeletal models also contain rigid/helper submeshes.
+		// Those have no bone weights and must not enter the skinning loop.
+		if(mpMeshEntity->GetMesh()->GetSkeleton() && mpSubMesh->GetVertexBonePairNum() > 0)
 		{
 			mpDynVtxBuffer = mpSubMesh->GetVertexBuffer()->CreateCopy(eVertexBufferType_Hardware,eVertexBufferUsageType_Dynamic,eFlagBit_All);
 			mvDynTriangles = *mpSubMesh->GetTriangleVecPtr();

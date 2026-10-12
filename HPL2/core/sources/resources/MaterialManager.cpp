@@ -253,6 +253,28 @@ namespace hpl {
 		tString sPhysicsMatName = GetAttributeString(pMain, "PhysicsMaterial", "Default");
 		tString sBlendMode = GetAttributeString(pMain, "BlendMode", "Add");
 
+#ifdef PENUMBRA
+		// PENUMBRA: HPL1 materials encode their blend mode in the type name.
+		// This product alone reads these aliases; HPL2 types remain unchanged.
+		const tString sLegacyType = cString::ToLowerCase(sType);
+		if(sLegacyType == "diffuse" || sLegacyType == "diffusespecular" ||
+			sLegacyType == "diffusespec" || sLegacyType == "bump" ||
+			sLegacyType == "bumpspecular" || sLegacyType == "bumpcolorspecular" ||
+			sLegacyType == "bumpspec" || sLegacyType == "bumpcolorspec" ||
+			sLegacyType == "bumpspec2d" || sLegacyType == "flat")
+			sType = "soliddiffuse";
+		else if(sLegacyType == "additive" || sLegacyType == "alpha" ||
+			sLegacyType == "modulative" || sLegacyType == "modulativex2" ||
+			sLegacyType == "environmentmapreflect" || sLegacyType == "envmap_reflect")
+		{
+			sType = "translucent";
+			if(sLegacyType == "alpha") sBlendMode = "Alpha";
+			else if(sLegacyType == "modulative") sBlendMode = "Mul";
+			else if(sLegacyType == "modulativex2") sBlendMode = "MulX2";
+			else sBlendMode = "Add";
+		}
+#endif
+
 		/////////////////////////////
 		// Make a "fake" material, with a blank type
 		if(mbDisableRenderDataLoading)
