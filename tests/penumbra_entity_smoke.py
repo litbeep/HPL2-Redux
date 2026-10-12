@@ -41,6 +41,22 @@ def create_entities(root):
     joint = ET.SubElement(model_scene, "node", id="hinge", name="_joint_hinge_Box_null_90_90_nocollide_Hinge")
     ET.SubElement(joint, "rotate").text = "1 0 0 90"
     model.write(root / "hinged.dae")
+    # A node inside a node of the same name, as in Overture's cardboard box:
+    # looking nodes up by name made a node its own child (endless recursion).
+    nested = ET.parse(root / "plain.dae")
+    nested_scene = nested.find("./library_visual_scenes/visual_scene")
+    inner = nested_scene.find("node[@name='Box']")
+    nested_scene.remove(inner)
+    outer = ET.Element("node", id="BoxOuter", name="Box")
+    outer.append(inner)
+    nested_scene.insert(0, outer)
+    nested.write(root / "nested.dae")
+    # Another file named like the model, which must not be read as its mesh.
+    (root / "nested.anm").write_bytes(bytes(range(256)) * 4)
+    # HPL1's TinyXML accepted unquoted attribute values (Mass = 1).
+    (root / "nested.ent").write_text('<ENTITY><MAIN Type="Object"/><GRAPHICS ModelFile="nested"/>'
+                                     '<PHYSICS Collides="true" HasPhysics="true" Mass = 1 Material="Default"/></ENTITY>')
+    ET.SubElement(ET.SubElement(scene, "node", id="nested", name="_ref_nested_nested"), "translate").text = "0 5 6"
     for index, entity_type in enumerate(("Object", "Item", "Lamp", "Enemy", "SwingDoor")):
         name = entity_type.lower()
         hinged = entity_type == "SwingDoor"
@@ -65,6 +81,7 @@ def run(exe, log, root, frames, renderer):
     assert "Penumbra exited cleanly" in output
     for name in ("object", "item", "lamp", "enemy", "swingdoor"):
         assert f"Penumbra entity '{name}':" in output
+    assert re.search(r"Penumbra entity 'nested':.*1 bodies", output), "nested-name model, .anm decoy or unquoted XML"
     assert re.search(r"'swingdoor':.*1 bodies, 1 joints", output)
     angle = float(re.search(r"Penumbra joint 'swingdoor_Hinge': type \d+, angle ([^,]+)", output)[1])
     heights = {name: float(position.split(":")[1]) for name, position in

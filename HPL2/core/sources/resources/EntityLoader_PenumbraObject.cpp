@@ -159,7 +159,10 @@ namespace hpl {
 			Error("Penumbra: could not read original entity model '%s'\n", model.c_str());
 			return nullptr;
 		}
-		cMesh* mesh = resources->GetMeshManager()->CreateMesh(model);
+		// The model is the .dae parsed above. Without the extension, the mesh
+		// manager takes the first supported type it finds, and installs ship
+		// other files with the model's name (an .anm read as a mesh overflows).
+		cMesh* mesh = resources->GetMeshManager()->CreateMesh(cString::SetFileExt(model, "dae"));
 		if(!mesh) return nullptr;
 		cMeshEntity* entity = world->CreateMeshEntity(name, mesh, false);
 		partial.mpEntity = entity;

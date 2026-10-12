@@ -1536,6 +1536,16 @@ namespace hpl {
 
 		////////////////////////////////
 		//Set up hierarchy
+		// PENUMBRA: match mesh nodes to node states by node, not by name. Two
+		// nodes may share a name (Penumbra's models nest "x" inside "x"), and a
+		// lookup by name then makes a node its own parent or child: a cycle.
+		std::map<cNode3D*, cNode3D*> mapStateOfMeshNode;
+		for(int i=0; i< (int)mvNodeStates.size();i++)
+			mapStateOfMeshNode[mpMesh->GetNode(i)] = mvNodeStates[i];
+		auto stateOf = [&](cNode3D* apMeshNode) -> cNode3D* {
+			auto it = mapStateOfMeshNode.find(apMeshNode);
+			return it == mapStateOfMeshNode.end() ? NULL : it->second;
+		};
 		for(int i=0; i< (int)mvNodeStates.size();i++)
 		{
 			cNode3D* pStateNode = mvNodeStates[i];
@@ -1544,7 +1554,7 @@ namespace hpl {
 			//Set the parent if there is one
 			if(pMeshNode->GetParent())
 			{
-				cNode3D* pParentNode = GetNodeStateFromName(pMeshNode->GetParent()->GetName());
+				cNode3D* pParentNode = stateOf(pMeshNode->GetParent());
 				if(pParentNode)
 				{
 					pStateNode->SetParent(pParentNode);
@@ -1565,7 +1575,7 @@ namespace hpl {
 			while(it.HasNext())
 			{
 				cNode3D* pChildNode = static_cast<cNode3D*>(it.Next());
-				pStateNode->AddChild(GetNodeStateFromName(pChildNode->GetName()));
+				if(cNode3D* pChildState = stateOf(pChildNode)) pStateNode->AddChild(pChildState);
 			}
 		}
 

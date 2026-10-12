@@ -5,6 +5,7 @@
 
 #include "resources/WorldLoader.h"
 #include "impl/MeshLoaderCollada.h"
+#include <map>
 
 namespace hpl {
 	class cMeshEntity;
@@ -32,6 +33,8 @@ namespace hpl {
 		int mlBodies = 0, mlSounds = 0, mlParticles = 0, mlBillboards = 0, mlBeams = 0;
 		cColladaScene* mpColladaScene = nullptr;
 		tString msEntityPrefix;
+		std::map<tString, int> m_mapDeferredKinds; // Node kinds not loaded yet, for the log
+		void Defer(const tString& asKind) { ++mlDeferred; ++m_mapDeferredKinds[asKind]; }
 	};
 }
 #endif

@@ -388,6 +388,16 @@ cTextureManager::CreateAnimImage(const tString &asName, bool abUseMipMaps,
                                  eTextureType aType, eTextureUsage aUsage,
                                  unsigned int alTextureSizeLevel, bool abSRGB,
                                  eTextureAnimMode aAnimMode, float aFrameTime) {
+#ifdef PENUMBRA
+  // PENUMBRA: HPL1 names an animation by its base name (x.jpg, with frames
+  // x01.jpg, x02.jpg...); HPL2 wants the first frame's name.
+  if (cString::GetFirstStringPos(cString::GetFileName(asName), "01.") < 0) {
+    return CreateAnimImage(cString::SetFileExt(asName, "") + "01." +
+                               cString::GetFileExt(asName),
+                           abUseMipMaps, aType, aUsage, alTextureSizeLevel,
+                           abSRGB, aAnimMode, aFrameTime);
+  }
+#endif
   BeginLoad(asName);
 
   // First frame must contain "01" before the extension.

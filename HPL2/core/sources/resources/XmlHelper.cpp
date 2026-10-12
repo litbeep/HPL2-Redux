@@ -25,6 +25,9 @@
 
 #include <tinyxml2.h>
 #include <stdio.h>
+#ifdef PENUMBRA
+#include <ctype.h> // PENUMBRA: QuoteBareAttributes
+#endif
 
 namespace hpl {
 
@@ -116,12 +119,69 @@ namespace hpl {
 
 	//-----------------------------------------------------------------------
 
+#ifdef PENUMBRA
+	// PENUMBRA: HPL1's TinyXML accepted unquoted attribute values
+	// ('MaxLinearSpeed = 1'), which some Penumbra files have. Quote them.
+	static bool QuoteBareAttributes(std::string& asText)
+	{
+		const std::string& s = asText;
+		std::string sOut;
+		sOut.reserve(s.size() + 64);
+		bool bInTag = false, bChanged = false;
+		char lQuote = 0;
+		for(size_t i=0; i<s.size(); ++i)
+		{
+			const char c = s[i];
+			if(lQuote) { sOut += c; if(c == lQuote) lQuote = 0; continue; }
+			if(!bInTag)
+			{
+				sOut += c;
+				if(c == '<') bInTag = i+1 < s.size() && s[i+1] != '!' && s[i+1] != '?';
+				continue;
+			}
+			if(c == '"' || c == '\'') { lQuote = c; sOut += c; continue; }
+			if(c == '>') { bInTag = false; sOut += c; continue; }
+			sOut += c;
+			if(c != '=') continue;
+			size_t j = i+1;
+			while(j < s.size() && isspace((unsigned char)s[j])) sOut += s[j++];
+			if(j < s.size() && s[j] != '"' && s[j] != '\'')
+			{
+				size_t k = j;
+				while(k < s.size() && !isspace((unsigned char)s[k]) && s[k] != '>' &&
+					  !(s[k] == '/' && k+1 < s.size() && s[k+1] == '>')) ++k;
+				sOut += '"'; sOut.append(s, j, k-j); sOut += '"';
+				bChanged = true;
+				j = k;
+			}
+			i = j-1;
+		}
+		if(bChanged) asText.swap(sOut);
+		return bChanged;
+	}
+#endif
+
 	bool LoadXmlFile(tinyxml2::XMLDocument& aDoc, const tWString& asPath)
 	{
 		FILE *pFile = cPlatform::OpenFile(asPath, _W("rb"));
 		if(pFile==NULL) return false;
 
 		bool bRet = aDoc.LoadFile(pFile) == tinyxml2::XML_SUCCESS;
+
+#ifdef PENUMBRA
+		if(bRet==false && aDoc.ErrorID()==tinyxml2::XML_ERROR_PARSING_ATTRIBUTE)
+		{
+			std::string sText;
+			fseek(pFile, 0, SEEK_SET);
+			char vBuffer[4096];
+			for(size_t lRead; (lRead = fread(vBuffer, 1, sizeof(vBuffer), pFile)) > 0;) sText.append(vBuffer, lRead);
+			if(QuoteBareAttributes(sText) && aDoc.Parse(sText.c_str(), sText.size()) == tinyxml2::XML_SUCCESS)
+			{
+				Log("XML document '%s' has unquoted attribute values; read as HPL1 did\n", cString::To8Char(asPath).c_str());
+				bRet = true;
+			}
+		}
+#endif
 
 		fclose(pFile);
 

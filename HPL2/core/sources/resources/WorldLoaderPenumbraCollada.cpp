@@ -48,6 +48,15 @@ namespace hpl {
 		cVertexBuffer* apBuffer, const tString& asMaterial, const tStringVec& avParams)
 	{
 		auto* pPhysics = apWorld->GetPhysicsWorld();
+		// Newton's tree collision crashes on a single face (its tree has no
+		// inner node). Add the triangle's back face, as a second face that
+		// collides the same. The buffer is the caller's temporary copy.
+		if(apBuffer->GetIndexNum() == 3)
+		{
+			const unsigned int* pIndices = apBuffer->GetIndices();
+			const unsigned int lA = pIndices[0], lB = pIndices[1], lC = pIndices[2];
+			apBuffer->AddIndex(lA); apBuffer->AddIndex(lC); apBuffer->AddIndex(lB);
+		}
 		auto* pBody = pPhysics->CreateBody(apNode->msName, pPhysics->CreateMeshShape(apBuffer));
 		pBody->SetMass(0);
 		pBody->SetBlocksLight(!HasParam(avParams, "nodraw") && !HasParam(avParams, "noshadow"));
@@ -190,7 +199,7 @@ namespace hpl {
 		pPhysics->SetMaxTimeStep(1.0f/60.0f);
 		pPhysics->SetWorldSize(-300, 300);
 		pWorld->SetPhysicsWorld(pPhysics);
-		mlMeshes = mlLights = mlStarts = mlDeferred = mlErrors = 0;
+		mlMeshes = mlLights = mlStarts = mlDeferred = mlErrors = 0; m_mapDeferredKinds.clear();
 		mlBodies = mlSounds = mlParticles = mlBillboards = mlBeams = 0;
 		mpColladaScene = &scene;
 		for(cColladaNode* pNode : scene.mRoot.mlstChildren)
@@ -205,6 +214,8 @@ namespace hpl {
 			mlMeshes, mlLights, mlStarts, mlDeferred, mlErrors);
 		Log("Penumbra environment: %d bodies, %d sounds, %d particles, %d billboards, %d beams\n",
 			mlBodies, mlSounds, mlParticles, mlBillboards, mlBeams);
+		for(const auto& kind : m_mapDeferredKinds)
+			Log("Penumbra deferred: %s x%d\n", kind.first.c_str(), kind.second);
 		// As in HPL1, a node that fails is logged and skipped; the level loads
 		// without it. Only a level with no geometry at all is unusable.
 		if(mlMeshes == 0)
@@ -263,7 +274,7 @@ namespace hpl {
 				if(mpResources->GetFileSearcher()->GetFilePath(cString::SetFileExt(sFile, ext)).empty())
 				{
 					Warning("Penumbra: missing optional environment resource '%s.%s'\n", sFile.c_str(), ext);
-					++mlDeferred;
+					Defer("missing " + tString(ext));
 					return;
 				}
 				if(sType == "sound")
@@ -368,7 +379,7 @@ namespace hpl {
 			else if(sType.compare(0, 4, "room") != 0 && sType.compare(0, 6, "portal") != 0)
 			{
 				// AI/path helpers and other deferred nodes stay hidden.
-				++mlDeferred;
+				Defer("_" + sType + "_");
 				return;
 			}
 			// Rooms are grouping nodes: retain their children and transforms.
@@ -401,7 +412,7 @@ namespace hpl {
 					}
 					else { Error("Penumbra: static node '%s' failed\n", apNode->msName.c_str()); ++mlErrors; }
 				}
-				else { ++mlDeferred; return; }
+				else { Defer("file " + sType); return; }
 			}
 			else if(cColladaGeometry* pGeometry = apParser->GetGeometry(apNode->msSource, avGeometry))
 			{
@@ -432,10 +443,13 @@ namespace hpl {
 						mpResources->GetMaterialManager()->CreateMaterial(sMaterial);
 					if(!material)
 					{
-						Error("Penumbra: material '%s' for '%s' failed\n", sMaterial.c_str(), apNode->msName.c_str());
-						++mlErrors;
+						// The install lacks it (some point at the artist's own disk).
+						// Draw the geometry untextured rather than not at all.
+						Warning("Penumbra: material '%s' for '%s' missing; drawn untextured\n", sMaterial.c_str(), apNode->msName.c_str());
+						material = mpResources->GetMaterialManager()->CreateCustomMaterial(
+							"penumbra_untextured_" + apNode->msName, mpGraphics->GetMaterialType("soliddiffuse"));
 					}
-					else
+					if(material)
 					{
 						cMesh* pMesh = hplNew(cMesh, (apNode->msName, _W(""), mpResources->GetMaterialManager(), mpResources->GetAnimationManager()));
 						cSubMesh* pSub = pMesh->CreateSubMesh(apNode->msName);
@@ -455,6 +469,7 @@ namespace hpl {
 						pEntity->SetRenderFlagBit(eRenderableFlag_ShadowCaster, !HasParam(vParams, "noshadow"));
 						++mlMeshes;
 					}
+					else { Error("Penumbra: no material for '%s'\n", apNode->msName.c_str()); ++mlErrors; }
 				}
 			}
 			else if(!(aFlags & eWorldLoadFlag_NoLights))
@@ -507,7 +522,7 @@ namespace hpl {
 						++mlLights;
 					}
 					// HPL1 also creates only point and spot lights.
-					else { Warning("Penumbra: unsupported light '%s'\n", pSource->msType.c_str()); ++mlDeferred; }
+					else { Warning("Penumbra: unsupported light '%s'\n", pSource->msType.c_str()); Defer("light " + pSource->msType); }
 				}
 				else { Warning("Penumbra: source '%s' not found\n", apNode->msSource.c_str()); ++mlErrors; }
 			}
